@@ -158,6 +158,71 @@
   .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin-top:10px}
   .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
   footer.app{max-width:1280px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);font-size:.8rem}
+  [hidden]{display:none!important}
+  /* zakładki */
+  .tabs{display:inline-flex;gap:4px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:12px;padding:4px}
+  .tab{border:none;background:transparent;color:var(--muted);padding:8px 14px;border-radius:9px;font:inherit;font-weight:650;font-size:.9rem;cursor:pointer}
+  .tab:hover{color:var(--text)}
+  .tab[aria-selected="true"]{background:var(--accent);color:#fff;box-shadow:var(--shadow)}
+  .tab:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+  /* zakładka epików */
+  .cards-4{grid-template-columns:repeat(4,1fr)}
+  @media (max-width:1100px){.cards-4{grid-template-columns:repeat(2,1fr)}}
+  @media (max-width:560px){.cards-4{grid-template-columns:1fr}}
+  .impact{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+  @media (max-width:760px){.impact{grid-template-columns:1fr}}
+  .impact .card{padding:11px 14px}
+  .impact .card .big{font-size:1.15rem}
+  .inline-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .mini{display:flex;flex-direction:column;gap:4px;font-size:.78rem;font-weight:650;color:var(--muted)}
+  .sg-learn{background:color-mix(in srgb,var(--prob-hi) 10%,var(--surface));border-color:color-mix(in srgb,var(--prob-hi) 32%,transparent)}
+  .sg-learn .sidebar-group-head{color:var(--prob-hi)}
+  .sg-month{background:color-mix(in srgb,var(--accent) 8%,var(--surface));border-color:color-mix(in srgb,var(--accent) 28%,transparent)}
+  .sg-month .sidebar-group-head{color:var(--accent)}
+  .sidebar-group.invalid,details.adv.invalid{outline:2px solid var(--err);outline-offset:2px}
+  .month-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .month-grid label{display:flex;flex-direction:column;font-size:.74rem;font-weight:650;color:var(--muted);gap:3px}
+  .month-grid input{padding:6px 7px;font-size:.86rem}
+  .month-grid label.in-range{color:var(--accent)}
+  .month-grid label.in-range input{border-color:var(--accent)}
+  .month-grid label.boost input{background:color-mix(in srgb,var(--prob-hi) 16%,var(--surface-2))}
+  .month-grid label.dip input{background:color-mix(in srgb,var(--prob-lo) 18%,var(--surface-2))}
+  details.adv{margin-top:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)}
+  details.adv summary{cursor:pointer;padding:10px 12px;font-weight:650;font-size:.9rem}
+  details.adv .adv-body{padding:0 12px 12px}
+  table.lvl-table{min-width:0;font-size:.84rem}
+  .lvl-table td,.lvl-table th{padding:5px 4px;text-align:left}
+  .lvl-table input{padding:5px 6px;font-size:.84rem}
+  #tab-epics .wrap{max-width:1480px}
+  table.etable{min-width:820px}
+  .etable .eff{font-size:.76rem;margin-top:4px;line-height:1.3}
+  .etable .cell-sub{font-size:.74rem;color:var(--muted)}
+  .etable th,.etable td{padding:7px 8px;text-align:left;vertical-align:middle}
+  .etable input,.etable select{padding:6px 8px;font-size:.88rem;border-radius:8px}
+  .wrap > *{min-width:0}
+  .inline-2 > *,.inline-3 > *,.month-grid > *{min-width:0}
+  input,select{min-width:0;max-width:100%}
+  @media (max-width:560px){.wrap{padding:16px}.header-inner{padding:12px 16px}}
+  .etable input[data-f=name]{width:112px}
+  .etable select{width:162px}
+  .etable th,.etable td{padding-left:6px;padding-right:6px}
+  .etable input[type=number]{width:60px}
+  .etable td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .etable td.invalid input{border-color:var(--err);background:var(--err-soft)}
+  .etable .acts{white-space:nowrap}
+  .etable .acts button{border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text);border-radius:7px;width:28px;height:28px;cursor:pointer;font:inherit;line-height:1;margin-right:3px}
+  .etable .acts button:disabled{opacity:.35;cursor:default}
+  .eff-up{color:var(--prob-hi);font-weight:650}
+  .eff-same{color:var(--muted)}
+  .st{display:inline-flex;align-items:center;gap:6px;font-weight:700;white-space:nowrap}
+  .st i{font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;color:#fff;font-size:.78rem;flex:none}
+  .st-ok{color:var(--prob-hi)} .st-ok i{background:var(--prob-hi)}
+  .st-warn{color:var(--prob-lo)} .st-warn i{background:var(--prob-lo)}
+  .st-miss{color:var(--err)} .st-miss i{background:var(--err)}
+  tr.cutline td{padding:4px 8px;text-align:center;font-size:.76rem;font-weight:800;letter-spacing:.04em;color:var(--err);background:var(--err-soft);border-top:2px dashed var(--err);border-bottom:2px dashed var(--err)}
+  .legend-st{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin-top:12px}
+  .legend-st .st{font-weight:600}
+  .zone.stale{opacity:.55}
 </style>
 </head>
 <body>
@@ -167,6 +232,10 @@
       <h1>Prognoza dostaw — Monte Carlo</h1>
       <span>Probabilistyczne prognozowanie terminów na podstawie historycznej przepustowości</span>
     </div>
+    <nav class="tabs" role="tablist" aria-label="Widoki prognozy">
+      <button type="button" class="tab" role="tab" id="tabbtn-backlog" data-tab="backlog" aria-controls="tab-backlog" aria-selected="true">Prognoza backlogu</button>
+      <button type="button" class="tab" role="tab" id="tabbtn-epics" data-tab="epics" aria-controls="tab-epics" aria-selected="false" tabindex="-1">Prognoza epików</button>
+    </nav>
     <div class="header-spacer"></div>
     <div class="theme-toggle" role="group" aria-label="Motyw kolorystyczny">
       <button type="button" id="themeLight" aria-pressed="false">☀︎ Jasny</button>
@@ -175,6 +244,7 @@
   </div>
 </header>
 
+<div class="tabpanel" id="tab-backlog" role="tabpanel" aria-labelledby="tabbtn-backlog">
 <div class="wrap">
   <!-- ======================= PANEL PARAMETRÓW ======================= -->
   <aside class="params">
@@ -344,6 +414,181 @@
       </div>
     </details>
   </main>
+</div>
+</div>
+
+<!-- ======================= ZAKŁADKA: PROGNOZA EPIKÓW ======================= -->
+<div class="tabpanel" id="tab-epics" role="tabpanel" aria-labelledby="tabbtn-epics" hidden>
+<div class="wrap">
+  <aside class="params">
+    <form id="eForm" class="panel panel-pad" novalidate>
+      <h2 style="font-size:1.05rem;margin-bottom:4px">Parametry prognozy epików</h2>
+      <p class="hint" style="margin:0 0 14px">Wyniki przeliczają się automatycznie po każdej zmianie.</p>
+
+      <div class="inline-2">
+        <div class="field" id="ef-start"><label for="eStart">Data rozpoczęcia</label><input type="date" id="eStart"></div>
+        <div class="field" id="ef-target"><label for="eTarget">Data docelowa</label><input type="date" id="eTarget"></div>
+      </div>
+      <div class="field" id="ef-conf">
+        <label for="eConf">Wymagana pewność (%)</label>
+        <input type="number" id="eConf" min="1" max="99" step="1">
+        <div class="hint">Na tym poziomie liczone są daty, statusy i linia odcięcia.</div>
+      </div>
+
+      <div class="field">
+        <label id="eSprintLabel">Długość sprintu</label>
+        <div class="seg" role="radiogroup" aria-labelledby="eSprintLabel">
+          <label><input type="radio" name="eSprintLen" value="7"><span>1 tydzień</span></label>
+          <label><input type="radio" name="eSprintLen" value="14"><span>2 tygodnie</span></label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label id="eTpLabel">Źródło przepustowości</label>
+        <div class="seg" role="radiogroup" aria-labelledby="eTpLabel">
+          <label><input type="radio" name="eTpMode" value="data"><span>Dane historyczne</span></label>
+          <label><input type="radio" name="eTpMode" value="estimate"><span>Szacunek</span></label>
+        </div>
+      </div>
+      <div class="field" id="ef-history">
+        <label for="eHistory">Historyczna przepustowość (historyjki na sprint)</label>
+        <input type="text" id="eHistory" spellcheck="false" autocomplete="off">
+        <div class="hint">Liczby oddzielone przecinkami, po jednej na sprint (1–30 wartości).</div>
+      </div>
+      <div class="field" id="ef-est" hidden>
+        <label>Szacunek przepustowości na sprint</label>
+        <div class="inline-3">
+          <input type="number" id="eEstMin" min="0" step="1" aria-label="Przepustowość minimalna">
+          <input type="number" id="eEstMode" min="0" step="1" aria-label="Przepustowość najbardziej prawdopodobna">
+          <input type="number" id="eEstMax" min="0" step="1" aria-label="Przepustowość maksymalna">
+        </div>
+        <div class="hint">Min · najbardziej prawdopodobna · max (rozkład trójkątny).</div>
+      </div>
+
+      <div class="field" id="ef-focus">
+        <label for="eFocus">Skupienie zespołu na tych epikach (%)</label>
+        <input type="number" id="eFocus" min="1" max="100" step="1">
+        <div class="hint">Część czasu zespołu poświęcona tej pracy. Mnoży przepustowość.</div>
+      </div>
+
+      <div class="field" id="ef-split">
+        <label>Współczynnik podziału historyjek (min / max)</label>
+        <div class="inline-2">
+          <input type="number" id="eSplitLo" min="0.1" max="5" step="0.05" aria-label="Współczynnik podziału minimum">
+          <input type="number" id="eSplitHi" min="0.1" max="5" step="0.05" aria-label="Współczynnik podziału maksimum">
+        </div>
+        <div class="hint">Historyjki często dzielą się w trakcie pracy. 1,0 oznacza brak podziału.</div>
+      </div>
+
+      <div class="sidebar-group sg-learn" id="ef-learn">
+        <div class="sidebar-group-head">Efekt uczenia się</div>
+        <div class="inline-2">
+          <label class="mini">Po ukończeniu epików<input type="number" id="eLearnK" min="0" max="20" step="1"></label>
+          <label class="mini">znajomość rośnie o (poziomy)<input type="number" id="eLearnN" min="0" max="3" step="1"></label>
+        </div>
+        <p class="hint" style="margin:8px 0 0">Kolejne epiki zespół realizuje z lepszą znajomością domeny, więc ich zakres mniej się rozrasta. 0 poziomów wyłącza efekt.</p>
+      </div>
+
+      <div class="sidebar-group sg-month" id="ef-months">
+        <div class="sidebar-group-head">Korekta przepustowości w miesiącach</div>
+        <p class="hint" style="margin:0 0 8px">Mnożnik tempa: 1,0 = jak w historii, 1,2 = o 20% szybciej, 0,8 = wolniej (np. urlopy). Miesiące w horyzoncie prognozy są podświetlone.</p>
+        <div class="month-grid" id="eMonths"></div>
+      </div>
+
+      <details class="adv" id="ef-levels">
+        <summary>Zaawansowane: poziomy znajomości epików</summary>
+        <div class="adv-body">
+          <p class="hint" style="margin:0 0 8px">Mnożnik rozrostu zakresu epiku, losowany równomiernie z przedziału min–max. To założenia, nie stałe z arkusza Troya Magennisa — dopasuj je do swojego zespołu.</p>
+          <table class="lvl-table"><thead><tr><th>Poziom</th><th>min</th><th>max</th></tr></thead><tbody id="eLevels"></tbody></table>
+        </div>
+      </details>
+
+      <div class="btn-row" style="margin-top:16px">
+        <button type="button" class="btn btn-ghost" id="eReset">Przywróć przykład</button>
+      </div>
+      <p class="hint" style="margin-top:12px">20&nbsp;000 symulacji • stałe ziarno • epiki realizowane po kolei</p>
+    </form>
+  </aside>
+
+  <main>
+    <div class="banner banner-err" id="eErr" role="alert"></div>
+    <div class="banner banner-info" id="eInfo" role="status"></div>
+
+    <div class="zone zone-base" id="eZone">
+      <div class="zone-head">
+        <span class="zone-badge">EPIKI</span>
+        <div>
+          <h2 class="zone-title">Kiedy dostarczymy kolejne epiki?</h2>
+          <p class="zone-sub" id="eZoneSub"></p>
+        </div>
+      </div>
+
+      <section class="section">
+        <h3 class="sec-h">Podsumowanie</h3>
+        <div class="cards cards-4" id="eKpis"></div>
+        <h4 class="chart-title" style="margin-top:16px">Wpływ założeń na termin ukończenia wszystkich epików</h4>
+        <p class="hint" style="margin:0">Ta sama symulacja (te same losowania) bez danego założenia. Ujemna liczba dni oznacza, że założenie przyspiesza dostawę.</p>
+        <div class="impact" id="eImpact"></div>
+      </section>
+
+      <section class="section">
+        <h3 class="sec-h">Epiki — kolejność, rozmiar, znajomość i prognoza</h3>
+        <p class="lead">Edytuj wartości bezpośrednio w tabeli. Epiki realizowane są w podanej kolejności; strzałkami zmienisz kolejność.</p>
+        <div class="tbl-wrap">
+          <table class="etable" id="eTable">
+            <thead><tr>
+              <th>#</th><th>Epik</th><th>Min</th><th>Max</th><th>Znajomość epiku</th>
+              <th id="eThDate">Prognoza</th><th>Status</th><th id="eThP">Szansa do celu</th><th><span class="sr-only">Akcje</span></th>
+            </tr></thead>
+            <tbody id="eTbody"></tbody>
+          </table>
+        </div>
+        <div class="btn-row" style="margin-top:10px"><button type="button" class="btn btn-ghost btn-sm" id="eAdd">+ Dodaj epik</button></div>
+        <div class="legend-st">
+          <span class="st st-ok"><i aria-hidden="true">✓</i>W terminie lub przed nim</span>
+          <span class="st st-warn"><i aria-hidden="true">!</i>Spóźnienie o maks. 1 sprint</span>
+          <span class="st st-miss"><i aria-hidden="true">✗</i>Spóźnienie o więcej niż 1 sprint</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h3 class="sec-h">Oś czasu epików</h3>
+        <p class="lead">Pasek: zakres dat ukończenia od 50% do 95% pewności · romb: data przy wymaganej pewności · czerwona przerywana linia: data docelowa.</p>
+        <div class="chart-card"><canvas id="eTimeline" role="img" aria-label="Oś czasu ukończenia epików"></canvas></div>
+      </section>
+
+      <section class="section">
+        <h3 class="sec-h" id="eProbTitle">Szansa ukończenia każdego epiku do daty docelowej</h3>
+        <p class="lead">Odsetek symulacji, w których epik został ukończony do daty docelowej włącznie. Pionowa linia: wymagana pewność.</p>
+        <div class="chart-card"><canvas id="eProbChart" role="img" aria-label="Szansa ukończenia każdego epiku do daty docelowej"></canvas></div>
+      </section>
+
+      <section class="section">
+        <h3 class="sec-h" id="eCountTitle">Ile epików dostarczymy do daty docelowej?</h3>
+        <p class="lead">Rozkład liczby ukończonych epików w 20&nbsp;000 symulacji.</p>
+        <div class="chart-card"><canvas id="eCountChart" role="img" aria-label="Rozkład liczby epików ukończonych do daty docelowej"></canvas><div class="legend" id="eCountLegend"></div></div>
+      </section>
+
+      <section class="section" style="margin-bottom:0">
+        <h3 class="sec-h">Efektywna przepustowość w kolejnych sprintach</h3>
+        <p class="lead">Średnia przepustowość × skupienie zespołu × mnożnik miesięczny (proporcjonalnie do dni sprintu przypadających na dany miesiąc).</p>
+        <div class="chart-card"><canvas id="eTpChart" role="img" aria-label="Efektywna przepustowość w kolejnych sprintach"></canvas><div class="legend" id="eTpLegend"></div></div>
+      </section>
+    </div>
+
+    <details class="help">
+      <summary>Jak działa prognoza epików?</summary>
+      <div class="help-body">
+        <p><b>Kolejność.</b> Epiki realizowane są po kolei. Epik jest ukończony w pierwszym sprincie, w którym łączna liczba dostarczonych historyjek pokryje jego zakres i zakres wszystkich epików przed nim.</p>
+        <p><b>Rozmiar epiku.</b> W każdej symulacji losujemy liczbę historyjek z przedziału min–max, mnożymy ją przez współczynnik podziału oraz przez mnożnik rozrostu zakresu wynikający ze znajomości epiku. Im słabiej zespół rozumie epik, tym szerszy i wyższy mnożnik.</p>
+        <p><b>Efekt uczenia się.</b> Po ukończeniu wskazanej liczby epików znajomość kolejnych rośnie o podaną liczbę poziomów. Zielona adnotacja „przy realizacji” pod poziomem znajomości pokazuje poziom użyty w obliczeniach.</p>
+        <p><b>Przepustowość.</b> Dla każdego sprintu losujemy (ze zwracaniem) jedną wartość z historii albo z rozkładu trójkątnego. Wynik mnożymy przez skupienie zespołu i przez mnożnik miesięczny, ważony liczbą dni sprintu w każdym miesiącu.</p>
+        <p><b>Data i status.</b> Data przy wymaganej pewności to najwcześniejszy koniec sprintu, do którego epik został ukończony w co najmniej tylu procentach symulacji. Status porównuje tę datę z datą docelową, tak jak w arkuszu Feature Cut Line Forecaster Troya Magennisa (Focused Objective).</p>
+        <p><b>Linia odcięcia.</b> Epiki nad linią mają co najmniej wymaganą szansę ukończenia do daty docelowej. Epiki pod linią są zagrożone: warto rozważyć zmianę zakresu, kolejności albo terminu.</p>
+      </div>
+    </details>
+  </main>
+</div>
 </div>
 
 <footer class="app">
@@ -1023,6 +1268,7 @@ function applyTheme(t){
   $('themeLight').setAttribute('aria-pressed', t==='light');
   $('themeDark').setAttribute('aria-pressed', t==='dark');
   redrawCharts();
+  document.dispatchEvent(new CustomEvent('mc:themechange'));
 }
 function initTheme(){
   let t=null;
@@ -1055,6 +1301,8 @@ function init(){
   renderCrEditors();
   updateHistoryHint();
   let rT; window.addEventListener('resize',()=>{ clearTimeout(rT); rT=setTimeout(redrawCharts,120); });
+  // po pokazaniu zakładki płótna mają już właściwą szerokość — przerysuj
+  document.addEventListener('mc:tabchange',e=>{ if(e.detail==='backlog') requestAnimationFrame(redrawCharts); });
 
   // pierwsze otwarcie: gotowe wyniki dla przykładu
   recalc();
@@ -1063,6 +1311,480 @@ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded'
 
 /* eksport do ewentualnej weryfikacji w konsoli */
 window.__MC__={computeModel,sprintsByDeadline,sprintEnd,fmtDate,isoToUTC,roundHalfUpAbs,runSimulation,qtyForProb,sprintForProb};
+})();
+</script>
+
+<script>
+"use strict";
+/* =========================================================================
+   ZAKŁADKA 2: PROGNOZA EPIKÓW (na wzór Feature Cut Line Forecaster)
+   ========================================================================= */
+(function(){
+/*CORE-START*/
+const E_DAY=86400000;
+const E_N=20000, E_MAXS=520;                    // 520 sprintów = limit zabezpieczający
+const E_SEED_SIZE=0x51ED270B, E_SEED_TP=0x2545F491;
+function eIso(iso){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||''); if(!m) return NaN;
+  const y=+m[1],mo=+m[2],d=+m[3]; const ms=Date.UTC(y,mo-1,d); const dt=new Date(ms);
+  if(dt.getUTCFullYear()!==y||dt.getUTCMonth()!==mo-1||dt.getUTCDate()!==d) return NaN; return ms; }
+function eFmt(ms){ const dt=new Date(ms); return String(dt.getUTCDate()).padStart(2,'0')+'.'+String(dt.getUTCMonth()+1).padStart(2,'0')+'.'+dt.getUTCFullYear(); }
+function eSprintEnd(startMs,n,len){ return startMs+(n*len-1)*E_DAY; }
+function eSprintsBy(startMs,deadlineMs,len){ const d=Math.round((deadlineMs-startMs)/E_DAY); return d<0?0:Math.floor((d+1)/len); }
+function eRng(a){ return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a);
+  t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
+
+// mnożnik sprintu = średnia mnożników miesięcznych ważona dniami sprintu
+function sprintMultipliers(startMs,len,months,count){
+  const arr=new Float64Array(count+1);
+  for(let s=1;s<=count;s++){ let sum=0; const b=startMs+(s-1)*len*E_DAY;
+    for(let d=0;d<len;d++) sum+=months[new Date(b+d*E_DAY).getUTCMonth()];
+    arr[s]=sum/len; }
+  return arr;
+}
+// poziom znajomości użyty w obliczeniach (0 = najlepiej znany)
+function effLevels(epics,learnK,learnN){ return epics.map((e,i)=> i>=learnK ? Math.max(0,e.lvl-learnN) : e.lvl); }
+function triangular(u,a,c,b){ if(b<=a) return a; const F=(c-a)/(b-a);
+  return u<F ? a+Math.sqrt(u*(b-a)*(c-a)) : b-Math.sqrt((1-u)*(b-a)*(b-c)); }
+
+/* Symulacja: osobne strumienie losowe dla rozmiarów i przepustowości (na próbę),
+   więc zmiana jednego epiku nie przesuwa losowań pozostałych ani tempa. */
+function simulateEpics(cfg){
+  const E=cfg.epics.length, N=cfg.N||E_N, mult=cfg.mult, MAXS=mult.length-1, SENT=MAXS+1;
+  const comp=[]; for(let e=0;e<E;e++) comp.push(new Int32Array(N));
+  const totals=new Int32Array(N); const target=new Float64Array(E);
+  const H=cfg.history?cfg.history.length:0; let capHit=false;
+  for(let t=0;t<N;t++){
+    const rs=eRng((E_SEED_SIZE+t)|0), rt=eRng((E_SEED_TP+t)|0);
+    let c=0;
+    for(let e=0;e<E;e++){
+      const ep=cfg.epics[e], L=cfg.levels[cfg.eff[e]];
+      const base=ep.min+Math.floor(rs()*(ep.max-ep.min+1));
+      const split=cfg.splitLo+rs()*(cfg.splitHi-cfg.splitLo);
+      const grow=L.lo+rs()*(L.hi-L.lo);
+      c+=Math.max(0,Math.round(base*split*grow)); target[e]=c;
+    }
+    totals[t]=c;
+    let idx=0; while(idx<E && target[idx]<=0){ comp[idx][t]=0; idx++; }
+    let cum=0,s=0;
+    while(idx<E && s<MAXS){
+      s++;
+      const tp = cfg.tpMode==='data' ? cfg.history[(rt()*H)|0] : triangular(rt(),cfg.est.min,cfg.est.mode,cfg.est.max);
+      cum+=tp*cfg.focus*mult[s];
+      while(idx<E && cum>=target[idx]-1e-9){ comp[idx][t]=s; idx++; }
+    }
+    if(idx<E){ capHit=true; for(;idx<E;idx++) comp[idx][t]=SENT; }
+  }
+  return {comp,totals,capHit,SENT,N};
+}
+
+function analyzeEpics(sim,c){
+  const {comp,totals,N,SENT}=sim; const E=comp.length; const p=c.conf/100;
+  const K=eSprintsBy(c.startMs,c.targetMs,c.len);
+  const q=(sorted,pp)=>sorted[Math.ceil(pp*N)-1];
+  const dateOf=s=> s<=0 ? c.startMs : eSprintEnd(c.startMs,s,c.len);
+  const countHist=new Int32Array(E+1);
+  for(let t=0;t<N;t++){ let k=0; while(k<E && comp[k][t]<=K) k++; countHist[k]++; }
+  const epics=[];
+  for(let e=0;e<E;e++){
+    const sorted=Int32Array.from(comp[e]).sort();
+    const sp=q(sorted,p), s50=q(sorted,0.5), s95=q(sorted,0.95);
+    let done=0; for(let t=0;t<N;t++) if(comp[e][t]<=K) done++;
+    const r={sprint:sp<SENT?sp:null, dateMs:sp<SENT?dateOf(sp):null,
+             d50:s50<SENT?dateOf(s50):null, d95:s95<SENT?dateOf(s95):null, pByTarget:done/N};
+    r.status = r.dateMs===null ? 'miss' : r.dateMs<=c.targetMs ? 'ok' : r.dateMs<=c.targetMs+c.len*E_DAY ? 'warn' : 'miss';
+    epics.push(r);
+  }
+  let cut=0; while(cut<E && epics[cut].status==='ok') cut++;
+  // liczba epików „co najmniej X” przy pewności p (z rozkładu) — przy realizacji po kolei równa linii odcięcia
+  let acc=0, countAtConf=0; for(let k=E;k>=0;k--){ acc+=countHist[k]; if(acc/N>=p){ countAtConf=k; break; } }
+  const st=Int32Array.from(totals).sort();
+  return {K,epics,cut,countHist,countAtConf,totalMedian:q(st,0.5),totalConf:q(st,p),capHit:sim.capHit,N};
+}
+/*CORE-END*/
+
+const $e=id=>document.getElementById(id);
+const MONTHS=['Sty','Lut','Mar','Kwi','Maj','Cze','Lip','Sie','Wrz','Paź','Lis','Gru'];
+const LVL_NAMES=['Jasny i zrozumiany','Częściowo zrozumiany','Słabo zrozumiany','Bardzo niejasny'];
+function esc(s){ return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function plural(n,one,few,many){ n=Math.abs(n); if(n===1) return one; const d=n%10,h=n%100; return (d>=2&&d<=4&&!(h>=12&&h<=14))?few:many; }
+const epicWord=n=>plural(n,'epik','epiki','epików');
+const storyWord=n=>plural(n,'historyjka','historyjki','historyjek');
+const dayWord=n=>plural(n,'dzień','dni','dni');
+const pctTxt=x=> x>=0.995&&x<1 ? '>99%' : x>0&&x<0.005 ? '<1%' : Math.round(x*100)+'%';
+
+function eDefaults(){ return {
+  start:'2026-12-01', target:'2027-05-31', conf:85, len:14, tpMode:'data',
+  history:'3, 4, 5, 4, 2, 7, 4, 5', est:{min:2,mode:4,max:7},
+  focus:75, splitLo:1, splitHi:1, learnK:2, learnN:1,
+  // od marca wyższa przepustowość (po feriach i z lepszą znajomością domeny)
+  months:[1,1,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1],
+  levels:[{lo:1,hi:1.1},{lo:1,hi:1.3},{lo:1.1,hi:1.6},{lo:1.25,hi:2}],
+  epics:[
+    {name:'Epik 1',min:4,max:6,lvl:1},{name:'Epik 2',min:3,max:5,lvl:1},
+    {name:'Epik 3',min:3,max:4,lvl:2},{name:'Epik 4',min:3,max:5,lvl:2},
+    {name:'Epik 5',min:4,max:7,lvl:2},{name:'Epik 6',min:4,max:8,lvl:2}]
+};}
+let ES=eDefaults(), eLast=null, eTimer=null;
+
+/* ---------- formularz ---------- */
+function buildStatic(){
+  $e('eMonths').innerHTML=MONTHS.map((m,i)=>'<label id="eMl'+i+'">'+m+'<input type="number" id="eM'+i+'" min="0" max="5" step="0.05" aria-label="Mnożnik przepustowości: '+m+'"></label>').join('');
+  $e('eLevels').innerHTML=LVL_NAMES.map((n,i)=>'<tr><td>'+n+'</td><td><input type="number" id="eLvlLo'+i+'" min="0.5" max="5" step="0.05" aria-label="'+n+': min"></td><td><input type="number" id="eLvlHi'+i+'" min="0.5" max="5" step="0.05" aria-label="'+n+': max"></td></tr>').join('');
+}
+function writeForm(){
+  $e('eStart').value=ES.start; $e('eTarget').value=ES.target; $e('eConf').value=ES.conf;
+  document.querySelector('input[name=eSprintLen][value="'+ES.len+'"]').checked=true;
+  document.querySelector('input[name=eTpMode][value="'+ES.tpMode+'"]').checked=true;
+  $e('eHistory').value=ES.history; $e('eEstMin').value=ES.est.min; $e('eEstMode').value=ES.est.mode; $e('eEstMax').value=ES.est.max;
+  $e('eFocus').value=ES.focus; $e('eSplitLo').value=ES.splitLo; $e('eSplitHi').value=ES.splitHi;
+  $e('eLearnK').value=ES.learnK; $e('eLearnN').value=ES.learnN;
+  ES.months.forEach((v,i)=>$e('eM'+i).value=v);
+  ES.levels.forEach((l,i)=>{ $e('eLvlLo'+i).value=l.lo; $e('eLvlHi'+i).value=l.hi; });
+  toggleTpMode(); updateMonthStyles();
+}
+function toggleTpMode(){ const m=document.querySelector('input[name=eTpMode]:checked').value;
+  $e('ef-history').hidden=m!=='data'; $e('ef-est').hidden=m!=='estimate'; }
+function num(id){ const v=$e(id).value.trim().replace(',','.'); return v===''?NaN:Number(v); }
+function updateMonthStyles(){
+  const s=eIso($e('eStart').value), t=eIso($e('eTarget').value); const inRange=new Set();
+  if(!isNaN(s)&&!isNaN(t)&&t>=s){ let d=new Date(s), y=d.getUTCFullYear(), m=d.getUTCMonth(); const te=new Date(t);
+    while(y<te.getUTCFullYear()||(y===te.getUTCFullYear()&&m<=te.getUTCMonth())){ inRange.add(m); m++; if(m>11){m=0;y++;} if(inRange.size===12) break; } }
+  for(let i=0;i<12;i++){ const v=num('eM'+i), l=$e('eMl'+i);
+    l.classList.toggle('in-range',inRange.has(i)); l.classList.toggle('boost',v>1); l.classList.toggle('dip',v<1); }
+}
+
+function readAll(){
+  const errs=[], bad=new Set(), c={};
+  const fail=(id,msg)=>{ errs.push(msg); bad.add(id); };
+  c.startMs=eIso($e('eStart').value); if(isNaN(c.startMs)) fail('ef-start','Podaj poprawną datę rozpoczęcia.');
+  c.targetMs=eIso($e('eTarget').value);
+  if(isNaN(c.targetMs)) fail('ef-target','Podaj poprawną datę docelową.');
+  else if(!isNaN(c.startMs)&&c.targetMs<c.startMs) fail('ef-target','Data docelowa nie może być wcześniejsza niż data rozpoczęcia.');
+  const conf=num('eConf'); if(!Number.isInteger(conf)||conf<1||conf>99) fail('ef-conf','Wymagana pewność: liczba całkowita od 1 do 99.'); else c.conf=conf;
+  c.len=+document.querySelector('input[name=eSprintLen]:checked').value;
+  c.tpMode=document.querySelector('input[name=eTpMode]:checked').value;
+  if(c.tpMode==='data'){
+    const raw=$e('eHistory').value.split(',').map(x=>x.trim());
+    if(raw.length<1||raw.length>30||raw.some(x=>!/^\d+$/.test(x))) fail('ef-history','Historia przepustowości: od 1 do 30 nieujemnych liczb całkowitych oddzielonych przecinkami.');
+    else c.history=raw.map(Number);
+  } else {
+    const a=num('eEstMin'),m=num('eEstMode'),b=num('eEstMax');
+    if([a,m,b].some(x=>isNaN(x)||x<0)||!(a<=m&&m<=b)) fail('ef-est','Szacunek przepustowości: liczby ≥ 0, min ≤ najbardziej prawdopodobna ≤ max.');
+    else c.est={min:a,mode:m,max:b};
+  }
+  const f=num('eFocus'); if(isNaN(f)||f<1||f>100) fail('ef-focus','Skupienie zespołu: od 1 do 100%.'); else c.focus=f/100;
+  const sl=num('eSplitLo'),sh=num('eSplitHi');
+  if(isNaN(sl)||isNaN(sh)||sl<0.1||sh>5||sl>sh) fail('ef-split','Współczynnik podziału: od 0,1 do 5, min ≤ max.'); else { c.splitLo=sl; c.splitHi=sh; }
+  const k=num('eLearnK'),n=num('eLearnN');
+  if(!Number.isInteger(k)||k<0||k>20||!Number.isInteger(n)||n<0||n>3) fail('ef-learn','Efekt uczenia się: liczba epików 0–20 i liczba poziomów 0–3 (liczby całkowite).');
+  else { c.learnK=k; c.learnN=n; }
+  c.months=[]; let mBad=false; for(let i=0;i<12;i++){ const v=num('eM'+i); if(isNaN(v)||v<0||v>5) mBad=true; c.months.push(v); }
+  if(mBad) fail('ef-months','Mnożniki miesięczne: liczby od 0 do 5.');
+  c.levels=[]; let lBad=false; for(let i=0;i<4;i++){ const lo=num('eLvlLo'+i),hi=num('eLvlHi'+i); if(isNaN(lo)||isNaN(hi)||lo<0.5||hi>5||lo>hi) lBad=true; c.levels.push({lo,hi}); }
+  if(lBad) fail('ef-levels','Poziomy znajomości: mnożniki od 0,5 do 5, min ≤ max.');
+  c.epics=[]; const badRows=[];
+  ES.epics.forEach((e,i)=>{ if(!(Number.isInteger(e.min)&&Number.isInteger(e.max)&&e.min>=0&&e.max<=999&&e.min<=e.max)) badRows.push(i);
+    c.epics.push({name:(e.name||'').trim()||('Epik '+(i+1)),min:e.min,max:e.max,lvl:e.lvl}); });
+  if(badRows.length) errs.push('Epiki: min i max to liczby całkowite 0–999, min ≤ max (wiersz '+badRows.map(i=>i+1).join(', ')+').');
+  return {ok:errs.length===0,c,errs,bad,badRows};
+}
+function markInvalid(r){
+  ['ef-start','ef-target','ef-conf','ef-history','ef-est','ef-focus','ef-split','ef-learn','ef-months','ef-levels']
+    .forEach(id=>$e(id).classList.toggle('invalid',r.bad.has(id)));
+  document.querySelectorAll('#eTbody tr[data-i]').forEach(tr=>{ const bad=r.badRows.includes(+tr.dataset.i);
+    tr.querySelectorAll('td.sz').forEach(td=>td.classList.toggle('invalid',bad)); });
+}
+
+/* ---------- tabela epików ---------- */
+function renderEpicRows(){
+  const n=ES.epics.length;
+  $e('eTbody').innerHTML=ES.epics.map((e,i)=>
+    '<tr data-i="'+i+'">'+
+      '<td class="num">'+(i+1)+'</td>'+
+      '<td><input data-f="name" maxlength="40" value="'+esc(e.name)+'" aria-label="Nazwa epiku '+(i+1)+'"></td>'+
+      '<td class="sz"><input type="number" data-f="min" min="0" max="999" step="1" value="'+(Number.isInteger(e.min)?e.min:'')+'" aria-label="Epik '+(i+1)+': minimalna liczba historyjek"></td>'+
+      '<td class="sz"><input type="number" data-f="max" min="0" max="999" step="1" value="'+(Number.isInteger(e.max)?e.max:'')+'" aria-label="Epik '+(i+1)+': maksymalna liczba historyjek"></td>'+
+      '<td><select data-f="lvl" aria-label="Epik '+(i+1)+': znajomość dziś">'+LVL_NAMES.map((nm,k)=>'<option value="'+k+'"'+(k===e.lvl?' selected':'')+'>'+nm+'</option>').join('')+'</select><div class="eff" data-r="eff"></div></td>'+
+      '<td class="num" data-r="date"></td><td data-r="status"></td><td class="num" data-r="p"></td>'+
+      '<td class="acts">'+
+        '<button type="button" data-a="up" aria-label="Przesuń epik '+(i+1)+' wyżej"'+(i===0?' disabled':'')+'>↑</button>'+
+        '<button type="button" data-a="down" aria-label="Przesuń epik '+(i+1)+' niżej"'+(i===n-1?' disabled':'')+'>↓</button>'+
+        '<button type="button" data-a="del" aria-label="Usuń epik '+(i+1)+'"'+(n<=1?' disabled':'')+'>✕</button>'+
+      '</td></tr>').join('');
+  $e('eAdd').disabled=n>=20;
+}
+function onTableEdit(e){
+  const tr=e.target.closest('tr[data-i]'), f=e.target.dataset.f; if(!tr||!f) return;
+  const ep=ES.epics[+tr.dataset.i];
+  if(f==='name') ep.name=e.target.value;
+  else if(f==='lvl') ep.lvl=+e.target.value;
+  else { const v=e.target.value.trim(); ep[f]=/^\d+$/.test(v)?parseInt(v,10):NaN; }
+  eSchedule();
+}
+function onTableClick(e){
+  const b=e.target.closest('button[data-a]'); if(!b) return;
+  const i=+b.closest('tr').dataset.i, a=b.dataset.a, L=ES.epics; let focusI=i;
+  if(a==='up'&&i>0){ [L[i-1],L[i]]=[L[i],L[i-1]]; focusI=i-1; }
+  else if(a==='down'&&i<L.length-1){ [L[i+1],L[i]]=[L[i],L[i+1]]; focusI=i+1; }
+  else if(a==='del'&&L.length>1){ L.splice(i,1); focusI=Math.min(i,L.length-1); }
+  else return;
+  renderEpicRows(); eRecalc();
+  const btn=document.querySelector('#eTbody tr[data-i="'+focusI+'"] button[data-a="'+a+'"]');
+  (btn&&!btn.disabled?btn:document.querySelector('#eTbody tr[data-i="'+focusI+'"] input')).focus();
+}
+
+/* ---------- obliczenia ---------- */
+function eSchedule(){ clearTimeout(eTimer); eTimer=setTimeout(eRecalc,220); }
+function eRecalc(){
+  clearTimeout(eTimer);
+  updateMonthStyles();
+  const r=readAll(); markInvalid(r);
+  const err=$e('eErr'), info=$e('eInfo'), zone=$e('eZone');
+  if(!r.ok){ err.innerHTML=r.errs.map(esc).join('<br>'); err.classList.add('show'); zone.classList.add('stale'); return; }
+  err.classList.remove('show'); zone.classList.remove('stale');
+  const c=r.c;
+  const meanTp=c.tpMode==='data' ? c.history.reduce((a,b)=>a+b,0)/c.history.length : (c.est.min+c.est.mode+c.est.max)/3;
+  if(meanTp<=0){
+    info.textContent='Przepustowość wynosi 0 — nie da się prognozować dat ukończenia epików. Wprowadź dane z co najmniej jednym niezerowym sprintem.';
+    info.classList.add('show'); eLast=null; eRenderEmpty(c); return;
+  }
+  const mult=sprintMultipliers(c.startMs,c.len,c.months,E_MAXS);
+  const effMain=effLevels(c.epics,c.learnK,c.learnN);
+  const base={epics:c.epics,levels:c.levels,splitLo:c.splitLo,splitHi:c.splitHi,tpMode:c.tpMode,
+              history:c.history,est:c.est,focus:c.focus,mult:mult,eff:effMain};
+  const main=analyzeEpics(simulateEpics(base),c);
+  const impacts=[];
+  const effNone=c.epics.map(e=>e.lvl);
+  if(effNone.some((l,i)=>l!==effMain[i])) impacts.push({key:'learn',a:analyzeEpics(simulateEpics(Object.assign({},base,{eff:effNone})),c)});
+  if(c.months.some(m=>m!==1)) impacts.push({key:'months',a:analyzeEpics(simulateEpics(Object.assign({},base,{mult:sprintMultipliers(c.startMs,c.len,new Array(12).fill(1),E_MAXS)})),c)});
+  if(c.focus<1) impacts.push({key:'focus',a:analyzeEpics(simulateEpics(Object.assign({},base,{focus:1})),c)});
+  if(main.capHit){ info.textContent='Część symulacji nie ukończyła wszystkich epików w limicie '+E_MAXS+' sprintów (bardzo niska przepustowość). Takie epiki oznaczono jako „poza horyzontem”.'; info.classList.add('show'); }
+  else info.classList.remove('show');
+  eLast={c,main,impacts,mult,meanTp,effMain};
+  eRender();
+}
+
+/* ---------- renderowanie ---------- */
+function stChip(s,short){
+  const m={ok:['st-ok','✓','W terminie','W terminie'],warn:['st-warn','!','Do 1 sprintu po celu','≤ 1 sprint po'],miss:['st-miss','✗','Ponad 1 sprint po celu','> 1 sprint po']}[s];
+  return '<span class="st '+m[0]+'" title="'+m[2]+'"><i aria-hidden="true">'+m[1]+'</i>'+(short?m[3]:m[2])+'</span>';
+}
+function card(color,label,big,sub){
+  return '<div class="card" style="border-top:3px solid '+color+'"><div class="plabel" style="color:'+color+'">'+label+'</div><div class="big">'+big+'</div><div class="sub">'+sub+'</div></div>';
+}
+function eRenderEmpty(c){
+  $e('eKpis').innerHTML=''; $e('eImpact').innerHTML='';
+  document.querySelectorAll('#eTbody td[data-r]').forEach(td=>td.textContent='—');
+  const old=document.querySelector('#eTbody tr.cutline'); if(old) old.remove();
+  ['eTimeline','eProbChart','eCountChart','eTpChart'].forEach(id=>{ const g=setup(id,120); msg(g,'Brak prognozy — przepustowość wynosi 0'); });
+  $e('eCountLegend').innerHTML=''; $e('eTpLegend').innerHTML='';
+}
+function eRender(){
+  const L=eLast; if(!L) return; const {c,main,impacts,effMain}=L; const E=c.epics.length, p=c.conf;
+  const col=eCols(); const tgt=eFmt(c.targetMs);
+  $e('eZoneSub').innerHTML='Start <b>'+eFmt(c.startMs)+'</b> · data docelowa <b>'+tgt+'</b> · pewność <b>'+p+'%</b> · '+E+' '+epicWord(E)+' realizowanych po kolei.';
+
+  // KPI
+  const last=main.epics[E-1];
+  const sumMin=c.epics.reduce((a,e)=>a+e.min,0), sumMax=c.epics.reduce((a,e)=>a+e.max,0);
+  const cutCol= main.cut===E?col.ok: main.cut>0?col.warn:col.miss;
+  const pAll=last.pByTarget, pCol= pAll>=p/100?col.ok: pAll>=0.5?col.warn:col.miss;
+  $e('eKpis').innerHTML=
+    card(stCol(col,last.status),'Wszystkie epiki gotowe ('+p+'%)', last.dateMs!==null?eFmt(last.dateMs):'Poza horyzontem',
+      stChip(last.status)+(last.sprint!==null?' · sprint '+last.sprint:''))+
+    card(cutCol,'Do '+tgt+' ('+p+'%)', main.cut+' z '+E+' '+epicWord(E),
+      main.cut===E?'Wszystkie epiki mieszczą się w terminie':main.cut>0?'Linia odcięcia po: <b>'+esc(c.epics[main.cut-1].name)+'</b>':'Żaden epik nie mieści się w terminie przy tej pewności')+
+    card(pCol,'Szansa na komplet do '+tgt, pctTxt(pAll),'Odsetek symulacji, w których ukończono wszystkie epiki')+
+    card(col.accent,'Łączny zakres po niepewności','ok. '+main.totalMedian+' '+storyWord(main.totalMedian),
+      p+'%: ≤ '+main.totalConf+' · szacunek wejściowy '+sumMin+'–'+sumMax);
+
+  // wpływ założeń
+  const label={learn:'Efekt uczenia się',months:'Korekta miesięczna przepustowości',focus:'Skupienie zespołu '+Math.round(c.focus*100)+'%'};
+  const altTxt={learn:'Bez efektu uczenia: ',months:'Bez korekty miesięcznej: ',focus:'Przy 100% skupienia: '};
+  $e('eImpact').innerHTML = impacts.length ? impacts.map(im=>{
+    const alt=im.a.epics[E-1].dateMs, cur=last.dateMs;
+    if(alt===null||cur===null) return card(col.muted,label[im.key],'—',altTxt[im.key]+(alt===null?'poza horyzontem':eFmt(alt)));
+    const d=Math.round((cur-alt)/E_DAY);
+    const color=d<0?col.ok:d>0?col.warn:col.muted;
+    return card(color,label[im.key],(d>0?'+':d<0?'−':'')+Math.abs(d)+' '+dayWord(Math.abs(d)),altTxt[im.key]+eFmt(alt));
+  }).join('') : '<p class="hint" style="margin:6px 0 0">Brak założeń modyfikujących prognozę (uczenie wyłączone, mnożniki 1,0, skupienie 100%).</p>';
+
+  // tabela: wyniki
+  $e('eThDate').textContent='Prognoza ('+p+'%)'; $e('eThP').textContent='Szansa do '+tgt;
+  document.querySelectorAll('#eTbody tr[data-i]').forEach(tr=>{
+    const i=+tr.dataset.i, r=main.epics[i]; if(!r) return;
+    const cell=k=>tr.querySelector('[data-r="'+k+'"]');
+    const changed=effMain[i]!==c.epics[i].lvl;
+    cell('eff').innerHTML=changed?'<span class="eff-up">↑ przy realizacji: '+LVL_NAMES[effMain[i]].toLowerCase()+'</span>':'';
+    cell('date').innerHTML=r.dateMs!==null?eFmt(r.dateMs)+'<div class="cell-sub">sprint '+r.sprint+'</div>':'poza horyzontem';
+    cell('status').innerHTML=stChip(r.status,true);
+    cell('p').textContent=pctTxt(r.pByTarget);
+  });
+  const old=document.querySelector('#eTbody tr.cutline'); if(old) old.remove();
+  if(main.cut>0&&main.cut<E){
+    const after=document.querySelector('#eTbody tr[data-i="'+(main.cut-1)+'"]');
+    const tr=document.createElement('tr'); tr.className='cutline';
+    tr.innerHTML='<td colspan="9">✂ LINIA ODCIĘCIA — epiki poniżej nie mieszczą się w terminie '+tgt+' przy pewności '+p+'%</td>';
+    after.after(tr);
+  }
+  $e('eCountTitle').textContent='Ile epików dostarczymy do '+tgt+'?';
+  $e('eProbTitle').textContent='Szansa ukończenia każdego epiku do '+tgt;
+  eDrawAll();
+}
+
+/* ---------- wykresy (Canvas) ---------- */
+function eCols(){ const cs=getComputedStyle(document.documentElement); const g=n=>cs.getPropertyValue(n).trim();
+  return {text:g('--text'),muted:g('--muted'),grid:g('--grid'),accent:g('--accent'),ok:g('--prob-hi'),warn:g('--prob-lo'),miss:g('--err'),stripe:g('--surface-2')}; }
+function stCol(col,s){ return s==='ok'?col.ok:s==='warn'?col.warn:col.miss; }
+function setup(id,h){ const cv=$e(id), dpr=window.devicePixelRatio||1, w=cv.clientWidth||760;
+  cv.width=w*dpr; cv.height=h*dpr; cv.style.height=h+'px'; const ctx=cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h); return {ctx,w,h}; }
+function msg(g,t){ const col=eCols(); g.ctx.fillStyle=col.muted; g.ctx.font='14px system-ui'; g.ctx.textAlign='center'; g.ctx.textBaseline='middle'; g.ctx.fillText(t,g.w/2,g.h/2); }
+function clip(ctx,t,maxW){ if(ctx.measureText(t).width<=maxW) return t; while(t.length>1&&ctx.measureText(t+'…').width>maxW) t=t.slice(0,-1); return t+'…'; }
+function dashV(ctx,x,y1,y2,color,w){ ctx.strokeStyle=color; ctx.lineWidth=w||2; ctx.setLineDash([6,4]); ctx.beginPath(); ctx.moveTo(x,y1); ctx.lineTo(x,y2); ctx.stroke(); ctx.setLineDash([]); }
+
+function eDrawAll(){ if(!eLast) return; drawTimeline(); drawProb(); drawCount(); drawTp(); }
+
+function drawTimeline(){
+  const {c,main}=eLast, E=c.epics.length, col=eCols();
+  const rowH=36, padT=34, padB=34, padR=92;
+  const g=setup('eTimeline',padT+padB+rowH*E), ctx=g.ctx;
+  const padL=Math.min(150,Math.max(90,g.w*0.18)), W=g.w-padL-padR;
+  let xmax=c.targetMs; main.epics.forEach(r=>[r.d95,r.dateMs].forEach(d=>{ if(d!==null&&d>xmax) xmax=d; }));
+  const xmin=c.startMs, span=Math.max(xmax-xmin,30*E_DAY); xmax=xmin+span*1.04;
+  const X=ms=>padL+(ms-xmin)/(xmax-xmin)*W, bottom=padT+E*rowH;
+  // pasy wierszy
+  for(let i=0;i<E;i++){ if(i%2===0){ ctx.fillStyle=col.stripe; ctx.fillRect(padL,padT+i*rowH,W,rowH); } }
+  // siatka miesięcy
+  ctx.font='11px system-ui'; ctx.textAlign='center'; ctx.textBaseline='top';
+  const step=(W/(span/(30.4*E_DAY)))<46?2:1;
+  let d0=new Date(xmin), y=d0.getUTCFullYear(), m=d0.getUTCMonth(), k=0;
+  for(let guard=0;guard<400;guard++){ const ms=Date.UTC(y,m,1); if(ms>xmax) break;
+    if(ms>=xmin){ const x=X(ms); ctx.strokeStyle=col.grid; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,bottom); ctx.stroke();
+      if(k%step===0){ ctx.fillStyle=col.muted; ctx.fillText(MONTHS[m]+' '+String(y).slice(2),x,bottom+8); } k++; }
+    m++; if(m>11){ m=0; y++; } }
+  // wiersze epików
+  main.epics.forEach((r,i)=>{
+    const yc=padT+i*rowH+rowH/2, sc=stCol(col,r.status);
+    ctx.fillStyle=col.text; ctx.font='600 12px system-ui'; ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillText(clip(ctx,c.epics[i].name,padL-14),padL-10,yc);
+    if(r.d50!==null&&r.d95!==null){ const x1=X(r.d50), x2=Math.max(X(r.d95),x1+4);
+      ctx.globalAlpha=.28; ctx.fillStyle=sc; ctx.fillRect(x1,yc-7,x2-x1,14); ctx.globalAlpha=1;
+      ctx.strokeStyle=sc; ctx.lineWidth=1; ctx.strokeRect(x1+.5,yc-6.5,x2-x1-1,13); }
+    if(r.dateMs!==null){ const xp=X(r.dateMs);
+      ctx.fillStyle=sc; ctx.beginPath(); ctx.moveTo(xp,yc-8); ctx.lineTo(xp+8,yc); ctx.lineTo(xp,yc+8); ctx.lineTo(xp-8,yc); ctx.closePath(); ctx.fill();
+      const xr=Math.max(xp+12,(r.d95!==null?X(r.d95):xp)+6);
+      ctx.fillStyle=col.text; ctx.font='11px system-ui'; ctx.textAlign='left'; ctx.fillText(eFmt(r.dateMs),xr,yc); }
+    else { ctx.fillStyle=col.miss; ctx.font='11px system-ui'; ctx.textAlign='left'; ctx.fillText('poza horyzontem',padL+6,yc); }
+  });
+  // linia odcięcia
+  if(main.cut>0&&main.cut<E){ const yc=padT+main.cut*rowH; ctx.strokeStyle=col.miss; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(8,yc); ctx.lineTo(g.w-8,yc); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=col.miss; ctx.font='bold 10px system-ui'; ctx.textAlign='left'; ctx.textBaseline='bottom'; ctx.fillText('✂ linia odcięcia',8,yc-2); }
+  // data docelowa
+  const xt=X(c.targetMs); dashV(ctx,xt,padT-6,bottom,col.miss,2);
+  ctx.fillStyle=col.miss; ctx.font='bold 11px system-ui'; ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText('Cel '+eFmt(c.targetMs),xt,padT-9);
+}
+
+function drawProb(){
+  const {c,main}=eLast, E=c.epics.length, col=eCols(), p=c.conf/100;
+  const rowH=32, padT=30, padB=30, padR=58;
+  const g=setup('eProbChart',padT+padB+rowH*E), ctx=g.ctx;
+  const padL=Math.min(150,Math.max(90,g.w*0.18)), W=g.w-padL-padR, X=v=>padL+v*W, bottom=padT+E*rowH;
+  ctx.font='11px system-ui'; ctx.textAlign='center'; ctx.textBaseline='top';
+  for(let i=0;i<=4;i++){ const x=X(i/4); ctx.strokeStyle=col.grid; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,bottom); ctx.stroke(); ctx.fillStyle=col.muted; ctx.fillText((i*25)+'%',x,bottom+8); }
+  main.epics.forEach((r,i)=>{
+    const yc=padT+i*rowH+rowH/2, v=r.pByTarget, color=v>=p?col.ok:v>=0.5?col.warn:col.miss;
+    ctx.fillStyle=col.text; ctx.font='600 12px system-ui'; ctx.textAlign='right'; ctx.textBaseline='middle'; ctx.fillText(clip(ctx,c.epics[i].name,padL-14),padL-10,yc);
+    ctx.fillStyle=color; ctx.fillRect(padL,yc-8,Math.max(2,v*W),16);
+    ctx.fillStyle=col.text; ctx.font='bold 11px system-ui'; ctx.textAlign='left'; ctx.fillText(pctTxt(v),X(v)+6,yc);
+  });
+  dashV(ctx,X(p),padT-6,bottom,col.text,1.5);
+  ctx.fillStyle=col.text; ctx.font='bold 11px system-ui'; ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText('wymagane '+c.conf+'%',X(p),padT-8);
+}
+
+function drawCount(){
+  const {c,main}=eLast, E=c.epics.length, col=eCols(), N=main.N, X0=main.countAtConf;
+  const g=setup('eCountChart',300), ctx=g.ctx, padL=46,padR=16,padT=26,padB=40, W=g.w-padL-padR, Hh=g.h-padT-padB;
+  const pct=Array.from(main.countHist,v=>v/N); const maxP=Math.max(...pct,0.01);
+  const bw=W/(E+1), Y=f=>padT+(1-f/maxP)*Hh;
+  ctx.font='11px system-ui'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const f=maxP*i/4, y=Y(f); ctx.strokeStyle=col.grid; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.fillStyle=col.muted; ctx.fillText((f*100).toFixed(0)+'%',padL-8,y); }
+  let mass=0;
+  for(let k=0;k<=E;k++){ const x=padL+k*bw, y=Y(pct[k]); const color=k>=X0?col.ok:col.muted; if(k>=X0) mass+=pct[k];
+    ctx.globalAlpha=k>=X0?.85:.45; ctx.fillStyle=color; ctx.fillRect(x+bw*.15,y,bw*.7,padT+Hh-y); ctx.globalAlpha=1;
+    ctx.fillStyle=col.text; ctx.font='bold 11px system-ui'; ctx.textAlign='center'; ctx.textBaseline='bottom'; if(pct[k]>0) ctx.fillText(pctTxt(pct[k]),x+bw/2,y-3);
+    ctx.fillStyle=col.muted; ctx.font='11px system-ui'; ctx.textBaseline='top'; ctx.fillText(String(k),x+bw/2,padT+Hh+8); }
+  ctx.fillStyle=col.muted; ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillText('liczba ukończonych epików',padL+W/2,padT+Hh+24);
+  $e('eCountLegend').innerHTML='<span><i style="background:'+col.ok+'"></i>Co najmniej '+X0+' '+epicWord(X0)+' — łącznie '+pctTxt(mass)+' symulacji (wymagane '+c.conf+'%)</span>';
+}
+
+function drawTp(){
+  const {c,main,mult,meanTp}=eLast, col=eCols();
+  const lastS=main.epics[main.epics.length-1].sprint;
+  const S=Math.min(60,Math.max(main.K,lastS||main.K,1)+1);
+  const g=setup('eTpChart',280), ctx=g.ctx, padL=46,padR=16,padT=22,padB=40, W=g.w-padL-padR, Hh=g.h-padT-padB;
+  const baseV=meanTp*c.focus; const vals=[]; for(let s=1;s<=S;s++) vals.push(baseV*mult[s]);
+  const maxV=Math.max(...vals,baseV,meanTp)*1.15||1; const bw=W/S, Y=v=>padT+(1-v/maxV)*Hh;
+  ctx.font='11px system-ui'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const v=maxV*i/4, y=Y(v); ctx.strokeStyle=col.grid; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.fillStyle=col.muted; ctx.fillText(v.toFixed(1),padL-8,y); }
+  vals.forEach((v,i)=>{ const s=i+1, m=mult[s], color=m>1.001?col.ok:m<0.999?col.warn:col.accent;
+    ctx.globalAlpha=.7; ctx.fillStyle=color; ctx.fillRect(padL+i*bw+bw*.12,Y(v),bw*.76,padT+Hh-Y(v)); ctx.globalAlpha=1; });
+  // poziom bez korekty miesięcznej oraz średnia historyczna
+  ctx.strokeStyle=col.text; ctx.lineWidth=1.5; ctx.setLineDash([5,4]); ctx.beginPath(); ctx.moveTo(padL,Y(baseV)); ctx.lineTo(padL+W,Y(baseV)); ctx.stroke();
+  ctx.strokeStyle=col.muted; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(padL,Y(meanTp)); ctx.lineTo(padL+W,Y(meanTp)); ctx.stroke(); ctx.setLineDash([]);
+  // etykiety osi X (daty końca sprintów)
+  const every=Math.ceil(S/8); ctx.fillStyle=col.muted; ctx.textAlign='center'; ctx.textBaseline='top';
+  for(let s=1;s<=S;s+=every) ctx.fillText(eFmt(eSprintEnd(c.startMs,s,c.len)).slice(0,5),padL+(s-1)*bw+bw/2,padT+Hh+8);
+  ctx.fillText('koniec sprintu',padL+W/2,padT+Hh+24);
+  if(main.K>0&&main.K<S){ const x=padL+main.K*bw; dashV(ctx,x,padT-4,padT+Hh,col.miss,2);
+    ctx.fillStyle=col.miss; ctx.font='bold 11px system-ui'; ctx.textBaseline='bottom'; ctx.fillText('Cel',x,padT-6); }
+  $e('eTpLegend').innerHTML=
+    '<span><i style="background:'+col.ok+'"></i>Mnożnik &gt; 1 (szybciej)</span>'+
+    '<span><i style="background:'+col.accent+'"></i>Mnożnik 1,0</span>'+
+    '<span><i style="background:'+col.warn+'"></i>Mnożnik &lt; 1 (wolniej)</span>'+
+    '<span><i style="background:'+col.text+'"></i>Średnia × skupienie: '+baseV.toFixed(2)+'</span>'+
+    '<span><i style="background:'+col.muted+'"></i>Średnia historyczna: '+meanTp.toFixed(2)+'</span>';
+}
+
+/* ---------- zakładki ---------- */
+function initTabs(){
+  const tabs=Array.from(document.querySelectorAll('.tab'));
+  const fromHash=()=>location.hash==='#epiki'?'epics':'backlog';
+  function show(id,updateHash){
+    tabs.forEach(t=>{ const on=t.dataset.tab===id; t.setAttribute('aria-selected',on?'true':'false'); t.tabIndex=on?0:-1; $e('tab-'+t.dataset.tab).hidden=!on; });
+    // uwaga: „#backlog” kolidowałby z id pola formularza, dlatego zakładka 1 nie ma kotwicy
+    if(updateHash){ try{ history.replaceState(null,'',id==='epics'?'#epiki':location.pathname+location.search); }catch(e){} }
+    document.dispatchEvent(new CustomEvent('mc:tabchange',{detail:id}));
+  }
+  tabs.forEach((t,i)=>{
+    t.addEventListener('click',()=>show(t.dataset.tab,true));
+    t.addEventListener('keydown',e=>{ if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft') return; e.preventDefault();
+      const n=tabs[(i+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length]; n.focus(); show(n.dataset.tab,true); });
+  });
+  window.addEventListener('hashchange',()=>show(fromHash(),false));
+  show(fromHash(),false);
+}
+
+function eInit(){
+  buildStatic(); writeForm(); renderEpicRows();
+  const form=$e('eForm');
+  form.addEventListener('submit',e=>e.preventDefault());
+  form.addEventListener('input',e=>{ if(e.target.name==='eTpMode') toggleTpMode(); updateMonthStyles(); eSchedule(); });
+  form.addEventListener('change',e=>{ if(e.target.name==='eTpMode') toggleTpMode(); eSchedule(); });
+  $e('eReset').addEventListener('click',()=>{ ES=eDefaults(); writeForm(); renderEpicRows(); eRecalc(); });
+  $e('eAdd').addEventListener('click',()=>{ if(ES.epics.length>=20) return; const n=ES.epics.length+1;
+    ES.epics.push({name:'Epik '+n,min:3,max:5,lvl:2}); renderEpicRows(); eRecalc();
+    const inp=document.querySelector('#eTbody tr[data-i="'+(n-1)+'"] input'); if(inp) inp.focus(); });
+  const tb=$e('eTbody'); tb.addEventListener('input',onTableEdit); tb.addEventListener('change',onTableEdit); tb.addEventListener('click',onTableClick);
+  document.addEventListener('mc:themechange',eDrawAll);
+  document.addEventListener('mc:tabchange',e=>{ if(e.detail==='epics') requestAnimationFrame(eDrawAll); });
+  let rT; window.addEventListener('resize',()=>{ clearTimeout(rT); rT=setTimeout(()=>{ if(!$e('tab-epics').hidden) eDrawAll(); },120); });
+  eRecalc();
+  initTabs();
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',eInit); else eInit();
+window.__EPIC__={simulateEpics,analyzeEpics,sprintMultipliers,effLevels,eDefaults};
 })();
 </script>
 </body>
