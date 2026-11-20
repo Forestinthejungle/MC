@@ -223,6 +223,41 @@
   .legend-st{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin-top:12px}
   .legend-st .st{font-weight:600}
   .zone.stale{opacity:.55}
+  /* wspólne scenariusze (Supabase) */
+  .header-inner{max-width:1480px}
+  .sc-open{white-space:nowrap}
+  .sc-open .sc-chip{font-size:.76rem;font-weight:650;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis}
+  dialog.sc-dialog{width:min(660px,calc(100vw - 32px));max-height:calc(100vh - 48px);padding:0;border:1px solid var(--border-strong);border-radius:16px;background:var(--surface);color:var(--text);box-shadow:0 24px 64px rgba(0,0,0,.35)}
+  dialog.sc-dialog::backdrop{background:rgba(15,23,42,.55)}
+  .sc-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:1}
+  .sc-head h2{font-size:1.05rem}
+  .sc-kind{font-size:.76rem;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+  .sc-x{margin-left:auto;border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text);border-radius:9px;width:32px;height:32px;cursor:pointer;font:inherit;flex:none}
+  .sc-body{padding:16px 18px 20px}
+  .sc-body p{margin:0 0 8px}
+  .sc-row{display:flex;gap:8px;margin-top:8px}
+  .sc-row input{flex:1}
+  .sc-user{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.86rem;color:var(--muted);margin-bottom:10px;flex-wrap:wrap}
+  .sc-h{font-size:.92rem;margin:16px 0 8px}
+  .sc-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .sc-item{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:var(--surface-2);display:flex;gap:10px;align-items:flex-start}
+  .sc-item.is-loaded{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+  .sc-meta{flex:1;min-width:0}
+  .sc-name{font-weight:700;overflow-wrap:anywhere}
+  .sc-desc{font-size:.84rem;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+  .sc-by{font-size:.76rem;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
+  .sc-actions{display:flex;gap:6px;flex:none}
+  .sc-tag{display:inline-block;font-size:.7rem;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:1px;background:var(--accent-soft);color:var(--accent)}
+  .sc-tag.dirty{background:var(--warn-soft);color:var(--warn)}
+  .sc-empty{font-size:.86rem;color:var(--muted);padding:6px 0}
+  #scSaveForm label{display:block;font-weight:600;font-size:.86rem;margin-bottom:10px}
+  #scSaveForm input,#scSaveForm textarea{display:block;width:100%;margin-top:5px;padding:9px 11px;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface-2);color:var(--text);font:inherit;resize:vertical}
+  .sc-setup ol{margin:8px 0 0;padding-left:20px;font-size:.88rem;color:var(--muted)}
+  .sc-setup li{margin-bottom:4px}
+  .banner .btn{margin-left:auto}
+  .sc-toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,20px);opacity:0;pointer-events:none;background:var(--text);color:var(--surface);padding:10px 16px;border-radius:12px;font-size:.88rem;font-weight:600;box-shadow:var(--shadow);transition:opacity .2s,transform .2s;z-index:60;max-width:calc(100vw - 32px)}
+  .sc-toast.show{opacity:1;transform:translate(-50%,0)}
+  @media (prefers-reduced-motion:reduce){.sc-toast{transition:none}}
 </style>
 </head>
 <body>
@@ -237,6 +272,7 @@
       <button type="button" class="tab" role="tab" id="tabbtn-epics" data-tab="epics" aria-controls="tab-epics" aria-selected="false" tabindex="-1">Prognoza epików</button>
     </nav>
     <div class="header-spacer"></div>
+    <button type="button" class="btn btn-ghost btn-sm sc-open" id="scOpen" aria-haspopup="dialog">☁ Scenariusze <span class="sc-chip" id="scChip" hidden></span></button>
     <div class="theme-toggle" role="group" aria-label="Motyw kolorystyczny">
       <button type="button" id="themeLight" aria-pressed="false">☀︎ Jasny</button>
       <button type="button" id="themeDark" aria-pressed="false">☾ Ciemny</button>
@@ -1310,6 +1346,44 @@ function init(){
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 
 /* eksport do ewentualnej weryfikacji w konsoli */
+/* przycisk „+ Dodaj drugi scenariusz” (wcześniej bez obsługi) */
+$('crAdd').addEventListener('click',()=>{
+  if(crScenarios.length>=2) return;
+  crScenarios.push({id:'cr'+(crScenarios.length+1),label:'Scenariusz CR '+(crScenarios.length+1),unit:'percent',value:30});
+  renderCrEditors(); markStale();
+  const inp=document.querySelector('[data-value="'+(crScenarios.length-1)+'"]'); if(inp) inp.focus();
+});
+
+/* ---- stan zakładki dla zapisu scenariuszy (Supabase) ---- */
+function backlogSnapshot(){
+  const n=v=>{ const t=String(v).trim(); return t===''?null:Number(t); };
+  return {v:1, backlog:n($('backlog').value), startDate:$('startDate').value,
+    sprintLen:+document.querySelector('input[name=sprintLen]:checked').value,
+    history:$('history').value.trim(), probs:[n($('p1').value),n($('p2').value),n($('p3').value)],
+    deadline:$('deadline').value, cr:crScenarios.map(s=>({unit:s.unit,value:isNaN(s.value)?null:s.value}))};
+}
+function backlogValidate(){
+  const r=readInputs(); if(!r.ok) return false;
+  return buildScenarios(r.data.backlog).errs.length===0;
+}
+function backlogApply(d){
+  if(!d||typeof d!=='object') return false;
+  const s=v=>(v===null||v===undefined)?'':String(v);
+  $('backlog').value=s(d.backlog);
+  $('startDate').value=typeof d.startDate==='string'?d.startDate:'';
+  document.querySelector('input[name=sprintLen][value="'+(d.sprintLen===7?7:14)+'"]').checked=true;
+  $('history').value=s(d.history);
+  const pr=Array.isArray(d.probs)?d.probs:[];
+  $('p1').value=s(pr[0]); $('p2').value=s(pr[1]); $('p3').value=s(pr[2]);
+  $('deadline').value=typeof d.deadline==='string'?d.deadline:'';
+  crScenarios=(Array.isArray(d.cr)?d.cr:[]).slice(0,2).map((c,i)=>({id:'cr'+(i+1),label:'Scenariusz CR '+(i+1),
+    unit:c&&c.unit==='items'?'items':'percent', value:(c&&typeof c.value==='number')?c.value:NaN}));
+  renderCrEditors(); updateHistoryHint(); recalc();
+  return true;
+}
+window.MC_STATE=window.MC_STATE||{};
+window.MC_STATE.backlog={snapshot:backlogSnapshot,validate:backlogValidate,apply:backlogApply};
+
 window.__MC__={computeModel,sprintsByDeadline,sprintEnd,fmtDate,isoToUTC,roundHalfUpAbs,runSimulation,qtyForProb,sprintForProb};
 })();
 </script>
@@ -1784,7 +1858,356 @@ function eInit(){
   initTabs();
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',eInit); else eInit();
+/* ---- stan zakładki dla zapisu scenariuszy (Supabase) ---- */
+function epicSnapshot(){
+  const n=id=>{ const v=num(id); return isNaN(v)?null:v; };
+  return {v:1, start:$e('eStart').value, target:$e('eTarget').value, conf:n('eConf'),
+    len:+document.querySelector('input[name=eSprintLen]:checked').value,
+    tpMode:document.querySelector('input[name=eTpMode]:checked').value,
+    history:$e('eHistory').value.trim(), est:{min:n('eEstMin'),mode:n('eEstMode'),max:n('eEstMax')},
+    focus:n('eFocus'), splitLo:n('eSplitLo'), splitHi:n('eSplitHi'), learnK:n('eLearnK'), learnN:n('eLearnN'),
+    months:MONTHS.map((_,i)=>n('eM'+i)), levels:LVL_NAMES.map((_,i)=>({lo:n('eLvlLo'+i),hi:n('eLvlHi'+i)})),
+    epics:ES.epics.map(e=>({name:e.name,min:Number.isInteger(e.min)?e.min:null,max:Number.isInteger(e.max)?e.max:null,lvl:e.lvl}))};
+}
+function epicSanitize(d){
+  const D=eDefaults(); if(!d||typeof d!=='object') return D;
+  const str=(v,f)=>typeof v==='string'?v:f, nm=(v,f)=>(typeof v==='number'&&isFinite(v))?v:f, est=d.est||{};
+  return {start:str(d.start,D.start), target:str(d.target,D.target), conf:nm(d.conf,D.conf), len:d.len===7?7:14,
+    tpMode:d.tpMode==='estimate'?'estimate':'data', history:str(d.history,D.history),
+    est:{min:nm(est.min,D.est.min),mode:nm(est.mode,D.est.mode),max:nm(est.max,D.est.max)},
+    focus:nm(d.focus,D.focus), splitLo:nm(d.splitLo,D.splitLo), splitHi:nm(d.splitHi,D.splitHi),
+    learnK:nm(d.learnK,D.learnK), learnN:nm(d.learnN,D.learnN),
+    months:Array.isArray(d.months)&&d.months.length===12?d.months.map((v,i)=>nm(v,D.months[i])):D.months,
+    levels:Array.isArray(d.levels)&&d.levels.length===4?d.levels.map((l,i)=>({lo:nm(l&&l.lo,D.levels[i].lo),hi:nm(l&&l.hi,D.levels[i].hi)})):D.levels,
+    epics:Array.isArray(d.epics)&&d.epics.length?d.epics.slice(0,20).map((e,i)=>({
+      name:str(e&&e.name,'Epik '+(i+1)).slice(0,40),
+      min:Number.isInteger(e&&e.min)?e.min:NaN, max:Number.isInteger(e&&e.max)?e.max:NaN,
+      lvl:[0,1,2,3].includes(e&&e.lvl)?e.lvl:1})):D.epics};
+}
+function epicApply(d){ ES=epicSanitize(d); writeForm(); renderEpicRows(); eRecalc(); return true; }
+window.MC_STATE=window.MC_STATE||{};
+window.MC_STATE.epics={snapshot:epicSnapshot,validate:()=>readAll().ok,apply:epicApply};
+
 window.__EPIC__={simulateEpics,analyzeEpics,sprintMultipliers,effLevels,eDefaults};
+})();
+</script>
+
+<!-- ======================= WSPÓLNE SCENARIUSZE (Supabase) ======================= -->
+<dialog id="scDialog" class="sc-dialog" aria-labelledby="scTitle">
+  <div class="sc-head">
+    <h2 id="scTitle">Scenariusze prognoz</h2>
+    <span class="sc-kind" id="scKind"></span>
+    <button type="button" class="sc-x" id="scClose" aria-label="Zamknij">✕</button>
+  </div>
+  <div class="sc-body">
+    <div class="banner banner-err" id="scErr" role="alert"></div>
+
+    <section id="scSetup" class="sc-setup" hidden>
+      <p><b>Dashboard nie jest jeszcze połączony z bazą danych.</b> Prognozy działają normalnie, ale scenariuszy nie można zapisać ani udostępnić.</p>
+      <p class="hint">Konfiguracja dla administratora:</p>
+      <ol>
+        <li>Utwórz projekt w Supabase (supabase.com, plan darmowy wystarczy).</li>
+        <li>W <i>SQL Editor</i> uruchom plik <code>supabase/schema.sql</code> z repozytorium i dodaj adresy e-mail osób z dostępem.</li>
+        <li>W <i>Authentication → URL Configuration</i> ustaw adres opublikowanej strony.</li>
+        <li>Wpisz <i>Project URL</i> i klucz <i>anon</i> w stałych <code>SUPABASE_URL</code> i <code>SUPABASE_ANON_KEY</code> w pliku <code>index.html</code>.</li>
+      </ol>
+    </section>
+
+    <p id="scConnecting" class="hint" hidden>Łączenie z bazą danych…</p>
+
+    <section id="scAuth" hidden>
+      <p>Zaloguj się adresem e-mail z listy dostępu. Wyślemy wiadomość z linkiem logowania.</p>
+      <form id="scEmailForm" class="sc-row" novalidate>
+        <input type="email" id="scEmail" required autocomplete="email" placeholder="imie.nazwisko@firma.pl" aria-label="Adres e-mail">
+        <button type="submit" class="btn btn-primary btn-sm">Wyślij link</button>
+      </form>
+      <form id="scCodeForm" class="sc-row" novalidate hidden>
+        <input type="text" id="scCode" inputmode="numeric" autocomplete="one-time-code" placeholder="Kod z wiadomości" aria-label="Kod logowania z wiadomości e-mail">
+        <button type="submit" class="btn btn-ghost btn-sm">Zaloguj kodem</button>
+      </form>
+      <p class="hint" id="scAuthMsg" role="status" style="margin-top:8px"></p>
+    </section>
+
+    <section id="scSession" hidden>
+      <div class="sc-user"><span id="scUser"></span><button type="button" class="btn btn-ghost btn-sm" data-act="logout">Wyloguj</button></div>
+    </section>
+
+    <section id="scNoAccess" hidden>
+      <p>Adres <b id="scNoAccessEmail"></b> nie jest na liście dostępu do wspólnych scenariuszy. Poproś administratora o dodanie go w tabeli <code>mc_members</code>.</p>
+    </section>
+
+    <section id="scMain" hidden>
+      <div class="banner banner-stale" id="scRemote" role="status"></div>
+      <h3 class="sc-h">Zapisane scenariusze</h3>
+      <ul class="sc-list" id="scList"></ul>
+      <h3 class="sc-h">Zapisz bieżące ustawienia</h3>
+      <form id="scSaveForm" novalidate>
+        <label>Nazwa<input id="scName" maxlength="80" autocomplete="off"></label>
+        <label>Opis (opcjonalnie)<textarea id="scDesc" maxlength="500" rows="2"></textarea></label>
+        <div class="btn-row">
+          <button type="submit" class="btn btn-primary btn-sm" id="scSaveNew">Zapisz jako nowy</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="scSaveOver" hidden></button>
+        </div>
+        <p class="hint" id="scSaveMsg" role="status" style="margin-top:8px"></p>
+      </form>
+    </section>
+  </div>
+</dialog>
+<div class="sc-toast" id="scToast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* =========================================================================
+   WSPÓLNE SCENARIUSZE (Supabase): zapis, wczytywanie i zmiany na żywo.
+   Bez konfiguracji nic nie jest pobierane z sieci — dashboard działa offline.
+   ========================================================================= */
+(function(){
+// Uzupełnij po utworzeniu projektu (Project Settings → API). Obie wartości są publiczne
+// z założenia — dostęp do danych chronią reguły RLS z pliku supabase/schema.sql.
+const SUPABASE_URL='';
+const SUPABASE_ANON_KEY='';
+const SDK_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
+const SDK_SRI='sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o';
+const TABLE='mc_scenarios';
+const KINDS=['backlog','epics'];
+const KIND_LABEL={backlog:'Prognoza backlogu',epics:'Prognoza epików'};
+const $s=id=>document.getElementById(id);
+const dlg=$s('scDialog');
+let sb=null, session=null, member=null, list=[], channel=null, sdkPromise=null, refreshT=null, chipT=null, connecting=false;
+const loaded={backlog:null,epics:null};
+const ownOps=new Map();   // własne zmiany nie wywołują powiadomień
+
+function configured(){ return /^https:\/\/\S+$/.test(SUPABASE_URL)&&SUPABASE_ANON_KEY.length>20; }
+function kindNow(){ const t=document.querySelector('.tab[aria-selected="true"]'); return t&&t.dataset.tab==='epics'?'epics':'backlog'; }
+function st(k){ return window.MC_STATE[k]; }
+function stable(v){ if(Array.isArray(v)) return '['+v.map(stable).join(',')+']';
+  if(v&&typeof v==='object') return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}';
+  return JSON.stringify(v===undefined?null:v); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function fmtTs(iso){ const d=new Date(iso); return isNaN(d)?String(iso):d.toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function isDirty(k){ const L=loaded[k]; return !!(L&&stable(st(k).snapshot())!==L.json); }
+function markOwn(id){ ownOps.set(id,Date.now()); }
+function isOwn(id){ const t=ownOps.get(id); return !!t&&Date.now()-t<6000; }
+function errText(e){
+  if(!e) return ''; const m=String(e.message||e);
+  if(e.status===429||/rate limit/i.test(m)) return 'Zbyt wiele prób w krótkim czasie — odczekaj chwilę i spróbuj ponownie.';
+  if(/Failed to fetch|NetworkError|Load failed|network/i.test(m)) return 'Brak połączenia z bazą danych. Dashboard działa dalej lokalnie.';
+  if(/mc_is_member|schema cache|does not exist|relation .* not/i.test(m)) return 'Baza nie jest jeszcze przygotowana — uruchom supabase/schema.sql w panelu Supabase.';
+  if(/row-level security|permission denied/i.test(m)) return 'Brak uprawnień — ten adres nie jest na liście dostępu.';
+  return 'Błąd bazy danych: '+m;
+}
+function setErr(m){ const b=$s('scErr'); b.textContent=m||''; b.classList.toggle('show',!!m); }
+function saveMsg(m,isErr){ const p=$s('scSaveMsg'); p.textContent=m||''; p.style.color=isErr?'var(--err)':''; }
+function toast(t){ const el=$s('scToast'); el.textContent=t; el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),5000); }
+function busy(on){ ['scSaveNew','scSaveOver'].forEach(id=>$s(id).disabled=on); }
+function fillForm(k){ const L=loaded[k]; $s('scName').value=L?L.name:''; $s('scDesc').value=L?(L.description||''):''; saveMsg(''); }
+
+/* ---- przycisk w nagłówku: nazwa wczytanego scenariusza + znacznik zmian ---- */
+function updateChip(){
+  const k=kindNow(), L=loaded[k], chip=$s('scChip');
+  if(!L){ chip.hidden=true; chip.textContent=''; return; }
+  const dirty=isDirty(k); chip.hidden=false;
+  chip.textContent='· '+L.name+(dirty?' ●':'');
+  chip.title=dirty?'Wczytany scenariusz ma niezapisane zmiany':'Wczytany scenariusz';
+}
+
+/* ---- widok okna ---- */
+function render(){
+  const cfg=configured(), k=kindNow();
+  $s('scKind').textContent=KIND_LABEL[k];
+  $s('scSetup').hidden=cfg;
+  $s('scConnecting').hidden=!(cfg&&connecting);
+  $s('scAuth').hidden=!(cfg&&sb&&!session&&!connecting);
+  $s('scSession').hidden=!session;
+  $s('scNoAccess').hidden=!(session&&member===false);
+  $s('scMain').hidden=!(session&&member===true);
+  if(session){ $s('scUser').innerHTML='Zalogowano jako <b>'+esc(session.user.email)+'</b>'; $s('scNoAccessEmail').textContent=session.user.email; }
+  if(session&&member) renderList();
+  updateChip();
+}
+function renderList(){
+  const k=kindNow(), L=loaded[k], items=list.filter(x=>x.kind===k), ul=$s('scList'), dirty=isDirty(k);
+  ul.innerHTML=!items.length
+    ? '<li class="sc-empty">Brak zapisanych scenariuszy w tej zakładce. Zapisz bieżące ustawienia poniżej.</li>'
+    : items.map(x=>{ const on=!!L&&L.id===x.id;
+        return '<li class="sc-item'+(on?' is-loaded':'')+'"><div class="sc-meta">'+
+          '<div class="sc-name">'+esc(x.name)+(on?'<span class="sc-tag'+(dirty?' dirty':'')+'">'+(dirty?'wczytany · niezapisane zmiany':'wczytany')+'</span>':'')+'</div>'+
+          (x.description?'<div class="sc-desc">'+esc(x.description)+'</div>':'')+
+          '<div class="sc-by">Ostatnia zmiana: '+esc(x.updated_by)+' · '+esc(fmtTs(x.updated_at))+(x.created_by!==x.updated_by?' · autor: '+esc(x.created_by):'')+'</div></div>'+
+          '<div class="sc-actions">'+
+            '<button type="button" class="btn btn-ghost btn-sm" data-load="'+esc(x.id)+'" aria-label="Wczytaj scenariusz '+esc(x.name)+'">Wczytaj</button>'+
+            '<button type="button" class="btn btn-ghost btn-sm" data-del="'+esc(x.id)+'" aria-label="Usuń scenariusz '+esc(x.name)+'">Usuń</button>'+
+          '</div></li>'; }).join('');
+  const rb=$s('scRemote');
+  if(L&&L.deleted){ rb.textContent='Wczytany scenariusz „'+L.name+'” został usunięty przez inną osobę. Bieżące ustawienia możesz zapisać jako nowy scenariusz.'; rb.classList.add('show'); }
+  else if(L&&L.remote){ rb.innerHTML='<span>Nowa wersja „'+esc(L.name)+'” od '+esc(L.remote.by)+' ('+esc(fmtTs(L.remote.at))+').</span><button type="button" class="btn btn-ghost btn-sm" data-act="reload">Wczytaj nową wersję</button>'; rb.classList.add('show'); }
+  else rb.classList.remove('show');
+  const ov=$s('scSaveOver');
+  if(L&&!L.deleted){ ov.hidden=false; ov.textContent='Zapisz zmiany w „'+L.name+'”'; } else ov.hidden=true;
+}
+
+/* ---- połączenie i logowanie ---- */
+function loadSdk(){
+  if(window.supabase&&window.supabase.createClient) return Promise.resolve();
+  if(sdkPromise) return sdkPromise;
+  sdkPromise=new Promise((res,rej)=>{ const s=document.createElement('script');
+    s.src=SDK_URL; s.integrity=SDK_SRI; s.crossOrigin='anonymous';
+    s.onload=()=>res(); s.onerror=()=>{ sdkPromise=null; s.remove(); rej(new Error('sdk')); };
+    document.head.appendChild(s); });
+  return sdkPromise;
+}
+async function connect(){
+  if(!configured()||sb||connecting){ render(); return; }
+  connecting=true; render();
+  try{ await loadSdk(); }
+  catch(e){ connecting=false; setErr('Nie udało się wczytać biblioteki Supabase (brak internetu lub zablokowana sieć). Dashboard działa dalej lokalnie.'); render(); return; }
+  try{
+    sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    const {data}=await sb.auth.getSession(); session=data.session;
+    // zgodnie z zaleceniem Supabase: bez wywołań API wewnątrz callbacku, dlatego setTimeout
+    sb.auth.onAuthStateChange((_ev,s)=>{ const before=session&&session.user.id, after=s&&s.user.id; session=s; if(before!==after) setTimeout(afterAuth,0); });
+  }catch(e){ connecting=false; sb=null; setErr(errText(e)); render(); return; }
+  connecting=false;
+  await afterAuth();
+}
+async function afterAuth(){
+  member=null; list=[];
+  if(channel){ try{ sb.removeChannel(channel); }catch(e){} channel=null; }
+  if(session){
+    const {data,error}=await sb.rpc('mc_is_member');
+    if(error) setErr(errText(error));
+    else { member=data===true; setErr(''); if(member){ await refresh(); subscribe(); } }
+  } else { KINDS.forEach(k=>loaded[k]=null); }
+  render();
+}
+async function refresh(){
+  if(!sb||!member) return;
+  const {data,error}=await sb.from(TABLE).select('id,kind,name,description,created_by,updated_by,created_at,updated_at').order('updated_at',{ascending:false}).limit(500);
+  if(error){ setErr(errText(error)); return; }
+  setErr(''); list=data||[];
+  KINDS.forEach(k=>{ const L=loaded[k]; if(L&&!L.deleted&&!list.some(x=>x.id===L.id)) L.deleted=true; });
+  render();
+}
+function subscribe(){
+  channel=sb.channel('mc-scenarios').on('postgres_changes',{event:'*',schema:'public',table:TABLE},onChange).subscribe();
+}
+function onChange(p){
+  const row=(p.new&&p.new.id)?p.new:(p.old||{});
+  const prev=list.find(x=>x.id===row.id);
+  const me=session&&String(session.user.email||'').toLowerCase();
+  clearTimeout(refreshT); refreshT=setTimeout(refresh,300);
+  // własne zmiany: INSERT/UPDATE rozpoznajemy po autorze, DELETE (bez danych wiersza) po niedawnej operacji
+  if((p.eventType==='INSERT'&&row.created_by===me)||(p.eventType==='UPDATE'&&row.updated_by===me)||(p.eventType==='DELETE'&&isOwn(row.id))) return;
+  if(p.eventType==='INSERT') toast('Nowy scenariusz „'+row.name+'” ('+(KIND_LABEL[row.kind]||'')+') — '+row.created_by);
+  else if(p.eventType==='UPDATE'){
+    toast('Zaktualizowano scenariusz „'+row.name+'” — '+row.updated_by);
+    KINDS.forEach(k=>{ const L=loaded[k]; if(L&&L.id===row.id&&row.updated_at!==L.updated_at) L.remote={by:row.updated_by,at:row.updated_at}; });
+  } else if(p.eventType==='DELETE'){
+    if(prev) toast('Usunięto scenariusz „'+prev.name+'”');
+    KINDS.forEach(k=>{ const L=loaded[k]; if(L&&L.id===row.id) L.deleted=true; });
+  }
+  render();
+}
+
+/* ---- operacje na scenariuszach ---- */
+async function saveNew(){
+  const k=kindNow(), a=st(k), name=$s('scName').value.trim(), description=$s('scDesc').value.trim();
+  if(!name){ saveMsg('Podaj nazwę scenariusza.',true); $s('scName').focus(); return; }
+  if(!a.validate()){ saveMsg('Popraw błędy w formularzu dashboardu przed zapisem.',true); return; }
+  const data=a.snapshot(); busy(true);
+  const {data:row,error}=await sb.from(TABLE).insert({kind:k,name,description,data}).select('id,name,description,updated_at').single();
+  busy(false);
+  if(error){ saveMsg(errText(error),true); return; }
+  markOwn(row.id);
+  loaded[k]={id:row.id,name:row.name,description:row.description,updated_at:row.updated_at,json:stable(data)};
+  saveMsg('Zapisano „'+row.name+'”. Scenariusz widzą teraz wszystkie osoby z dostępem.');
+  await refresh();
+}
+async function saveOver(){
+  const k=kindNow(), a=st(k), L=loaded[k]; if(!L||L.deleted) return;
+  if(!a.validate()){ saveMsg('Popraw błędy w formularzu dashboardu przed zapisem.',true); return; }
+  const data=a.snapshot(), name=$s('scName').value.trim()||L.name, description=$s('scDesc').value.trim();
+  const patch={name,description,data}, cols='id,name,description,updated_at';
+  busy(true); markOwn(L.id);
+  // zapis tylko wtedy, gdy nikt nie zmienił scenariusza od momentu wczytania
+  let {data:rows,error}=await sb.from(TABLE).update(patch).eq('id',L.id).eq('updated_at',L.updated_at).select(cols);
+  if(!error&&rows&&!rows.length){
+    const {data:cur}=await sb.from(TABLE).select('updated_at,updated_by').eq('id',L.id).maybeSingle();
+    if(!cur){ busy(false); L.deleted=true; render(); saveMsg('Scenariusz został w międzyczasie usunięty. Zapisz ustawienia jako nowy scenariusz.',true); return; }
+    if(!confirm('Scenariusz został w międzyczasie zmieniony przez '+cur.updated_by+' ('+fmtTs(cur.updated_at)+').\n\nNadpisać tamte zmiany Twoją wersją?')){ busy(false); saveMsg('Nie zapisano. Możesz wczytać nową wersję albo zapisać swoją jako nowy scenariusz.',true); return; }
+    markOwn(L.id);
+    ({data:rows,error}=await sb.from(TABLE).update(patch).eq('id',L.id).select(cols));
+  }
+  busy(false);
+  if(error){ saveMsg(errText(error),true); return; }
+  if(!rows||!rows.length){ saveMsg('Nie udało się zapisać — brak uprawnień lub scenariusz nie istnieje.',true); return; }
+  const r=rows[0];
+  loaded[k]={id:r.id,name:r.name,description:r.description,updated_at:r.updated_at,json:stable(data)};
+  saveMsg('Zapisano zmiany w „'+r.name+'”.');
+  await refresh();
+}
+async function loadScn(id,skipConfirm){
+  const k=kindNow(), a=st(k);
+  if(!skipConfirm&&isDirty(k)&&!confirm('Wczytany scenariusz ma niezapisane zmiany. Porzucić je?')) return;
+  const {data:row,error}=await sb.from(TABLE).select('*').eq('id',id).maybeSingle();
+  if(error){ setErr(errText(error)); return; }
+  if(!row){ setErr('Ten scenariusz już nie istnieje.'); refresh(); return; }
+  if(row.kind!==k){ setErr('Ten scenariusz należy do innej zakładki.'); return; }
+  a.apply(row.data);
+  loaded[k]={id:row.id,name:row.name,description:row.description,updated_at:row.updated_at,json:stable(a.snapshot())};
+  fillForm(k); setErr(''); render(); toast('Wczytano „'+row.name+'”');
+}
+async function delScn(id){
+  const x=list.find(s=>s.id===id); if(!x) return;
+  if(!confirm('Usunąć scenariusz „'+x.name+'”?\n\nZniknie on też u innych osób. Tej operacji nie można cofnąć.')) return;
+  markOwn(id);
+  const {error}=await sb.from(TABLE).delete().eq('id',id);
+  if(error){ setErr(errText(error)); return; }
+  KINDS.forEach(k=>{ if(loaded[k]&&loaded[k].id===id) loaded[k]=null; });
+  fillForm(kindNow()); toast('Usunięto „'+x.name+'”'); await refresh();
+}
+
+/* ---- zdarzenia ---- */
+$s('scOpen').addEventListener('click',()=>{ render(); if(!dlg.open) dlg.showModal(); if(configured()&&!sb) connect(); });
+$s('scClose').addEventListener('click',()=>dlg.close());
+dlg.addEventListener('click',e=>{
+  if(e.target===dlg){ dlg.close(); return; }
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.load) loadScn(b.dataset.load);
+  else if(b.dataset.del) delScn(b.dataset.del);
+  else if(b.dataset.act==='logout'){ sb.auth.signOut(); }
+  else if(b.dataset.act==='reload'){ const L=loaded[kindNow()]; if(L) loadScn(L.id); }
+});
+$s('scSaveForm').addEventListener('submit',e=>{ e.preventDefault(); saveNew(); });
+$s('scSaveOver').addEventListener('click',saveOver);
+$s('scEmailForm').addEventListener('submit',async e=>{
+  e.preventDefault(); const email=$s('scEmail').value.trim().toLowerCase();
+  if(!/^\S+@\S+\.\S+$/.test(email)){ $s('scAuthMsg').textContent='Podaj poprawny adres e-mail.'; $s('scEmail').focus(); return; }
+  const btn=e.target.querySelector('button'); btn.disabled=true; setErr('');
+  const options={shouldCreateUser:true};
+  if(/^https?:$/.test(location.protocol)) options.emailRedirectTo=location.origin+location.pathname;
+  const {error}=await sb.auth.signInWithOtp({email,options});
+  btn.disabled=false;
+  if(error){ setErr(errText(error)); return; }
+  $s('scCodeForm').hidden=false;
+  $s('scAuthMsg').textContent='Wysłano wiadomość na '+email+'. Kliknij link w e-mailu'+(location.protocol==='file:'?' (link działa na stronie opublikowanej)':'')+' albo wpisz kod z wiadomości, jeśli go zawiera.';
+});
+$s('scCodeForm').addEventListener('submit',async e=>{
+  e.preventDefault(); const token=$s('scCode').value.replace(/\s/g,''), email=$s('scEmail').value.trim().toLowerCase(); if(!token) return;
+  const {error}=await sb.auth.verifyOtp({email,token,type:'email'});
+  if(error) setErr(/expired|invalid/i.test(error.message)?'Kod jest nieprawidłowy lub wygasł. Wyślij nowy link.':errText(error));
+  else { $s('scCode').value=''; $s('scAuthMsg').textContent=''; }
+});
+// znacznik niezapisanych zmian po edycji dashboardu
+const onEdit=e=>{ if(dlg.contains(e.target)) return; clearTimeout(chipT); chipT=setTimeout(()=>{ updateChip(); if(dlg.open&&session&&member) renderList(); },250); };
+document.addEventListener('input',onEdit,true); document.addEventListener('change',onEdit,true);
+document.addEventListener('click',e=>{ if(e.target.closest('#tab-backlog button,#tab-epics button')) onEdit(e); },true);
+document.addEventListener('mc:tabchange',()=>{ fillForm(kindNow()); render(); });
+
+// Bez konfiguracji: żadnych połączeń sieciowych. Z konfiguracją: łączymy od razu,
+// żeby odebrać logowanie z linku e-mail i powiadomienia o zmianach innych osób.
+if(configured()) connect(); else render();
+window.__SC__={stable,isDirty:k=>isDirty(k),loaded};
 })();
 </script>
 </body>
