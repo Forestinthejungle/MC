@@ -57,7 +57,7 @@
   .field > label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px}
   .hint{color:var(--muted);font-size:.82rem;margin-top:5px}
   .note{font-size:.82rem;margin-top:6px;padding:8px 10px;border-radius:10px;background:var(--warn-soft);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent)}
-  input[type=text],input[type=number],input[type=date],select{
+  input[type=text],input[type=number],input[type=date],input[type=password],select{
     width:100%;padding:9px 11px;border:1px solid var(--border-strong);border-radius:10px;
     background:var(--surface-2);color:var(--text);font:inherit;
   }
@@ -1907,8 +1907,8 @@ window.__EPIC__={simulateEpics,analyzeEpics,sprintMultipliers,effLevels,eDefault
       <p class="hint">Konfiguracja dla administratora:</p>
       <ol>
         <li>Utwórz projekt w Supabase (supabase.com, plan darmowy wystarczy).</li>
-        <li>W <i>SQL Editor</i> uruchom plik <code>supabase/schema.sql</code> z repozytorium i dodaj adresy e-mail osób z dostępem.</li>
-        <li>W <i>Authentication → URL Configuration</i> ustaw adres opublikowanej strony.</li>
+        <li>W <i>SQL Editor</i> uruchom plik <code>supabase/schema.sql</code> z repozytorium.</li>
+        <li>W <i>Authentication → Users</i> utwórz konto wspólne <code>zespol@example.com</code> z hasłem zespołu.</li>
         <li>Wpisz <i>Project URL</i> i klucz <i>anon</i> w stałych <code>SUPABASE_URL</code> i <code>SUPABASE_ANON_KEY</code> w pliku <code>index.html</code>.</li>
       </ol>
     </section>
@@ -1916,24 +1916,31 @@ window.__EPIC__={simulateEpics,analyzeEpics,sprintMultipliers,effLevels,eDefault
     <p id="scConnecting" class="hint" hidden>Łączenie z bazą danych…</p>
 
     <section id="scAuth" hidden>
-      <p>Zaloguj się adresem e-mail z listy dostępu. Wyślemy wiadomość z linkiem logowania.</p>
-      <form id="scEmailForm" class="sc-row" novalidate>
-        <input type="email" id="scEmail" required autocomplete="email" placeholder="imie.nazwisko@firma.pl" aria-label="Adres e-mail">
-        <button type="submit" class="btn btn-primary btn-sm">Wyślij link</button>
+      <p>Wpisz hasło zespołu, aby zobaczyć i zapisywać wspólne scenariusze.</p>
+      <form id="scPassForm" novalidate>
+        <div class="sc-row" style="margin-top:0">
+          <input type="password" id="scPass" autocomplete="current-password" placeholder="Hasło zespołu" aria-label="Hasło zespołu">
+          <button type="submit" class="btn btn-primary btn-sm">Odblokuj</button>
+        </div>
+        <label class="mini" style="margin-top:10px">Podpis przy Twoich zmianach (opcjonalnie)
+          <input type="text" id="scNameAuth" maxlength="60" autocomplete="name" placeholder="np. Ania">
+        </label>
       </form>
-      <form id="scCodeForm" class="sc-row" novalidate hidden>
-        <input type="text" id="scCode" inputmode="numeric" autocomplete="one-time-code" placeholder="Kod z wiadomości" aria-label="Kod logowania z wiadomości e-mail">
-        <button type="submit" class="btn btn-ghost btn-sm">Zaloguj kodem</button>
-      </form>
-      <p class="hint" id="scAuthMsg" role="status" style="margin-top:8px"></p>
+      <p class="hint" style="margin-top:8px">Na tym urządzeniu pozostaniesz zalogowany, dopóki nie klikniesz „Zablokuj”.</p>
     </section>
 
     <section id="scSession" hidden>
-      <div class="sc-user"><span id="scUser"></span><button type="button" class="btn btn-ghost btn-sm" data-act="logout">Wyloguj</button></div>
+      <div class="sc-user">
+        <span>Połączono z bazą zespołu</span>
+        <label class="mini" style="flex-direction:row;align-items:center;gap:8px">Podpis
+          <input type="text" id="scSign" maxlength="60" autocomplete="name" placeholder="np. Ania" style="width:150px;padding:6px 9px">
+        </label>
+        <button type="button" class="btn btn-ghost btn-sm" data-act="logout">Zablokuj</button>
+      </div>
     </section>
 
     <section id="scNoAccess" hidden>
-      <p>Adres <b id="scNoAccessEmail"></b> nie jest na liście dostępu do wspólnych scenariuszy. Poproś administratora o dodanie go w tabeli <code>mc_members</code>.</p>
+      <p>Zalogowano, ale konto nie ma dostępu do scenariuszy. Administrator: uruchom ponownie <code>supabase/schema.sql</code> — dopisuje konto wspólne do tabeli <code>mc_members</code>.</p>
     </section>
 
     <section id="scMain" hidden>
@@ -1966,6 +1973,8 @@ window.__EPIC__={simulateEpics,analyzeEpics,sprintMultipliers,effLevels,eDefault
 // z założenia — dostęp do danych chronią reguły RLS z pliku supabase/schema.sql.
 const SUPABASE_URL='';
 const SUPABASE_ANON_KEY='';
+// Wspólne konto zespołu (utwórz je w Authentication → Users). Na stronie wpisuje się tylko hasło.
+const SHARED_EMAIL='zespol@example.com';
 const SDK_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
 const SDK_SRI='sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o';
 const TABLE='mc_scenarios';
@@ -1975,7 +1984,12 @@ const $s=id=>document.getElementById(id);
 const dlg=$s('scDialog');
 let sb=null, session=null, member=null, list=[], channel=null, sdkPromise=null, refreshT=null, chipT=null, connecting=false;
 const loaded={backlog:null,epics:null};
-const ownOps=new Map();   // własne zmiany nie wywołują powiadomień
+const ownOps=new Map();   // własne usunięcia nie wywołują powiadomień
+// konto jest wspólne, więc własne zmiany rozpoznajemy po identyfikatorze tej karty przeglądarki
+const CLIENT_ID=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Math.random()).slice(2)+Date.now();
+function getSign(){ try{ return (localStorage.getItem('mc-sc-sign')||'').slice(0,60); }catch(e){ return ''; } }
+function setSign(v){ try{ localStorage.setItem('mc-sc-sign',String(v||'').trim().slice(0,60)); }catch(e){} }
+function who(name){ return name&&name.trim()?name.trim():'osoba bez podpisu'; }
 
 function configured(){ return /^https:\/\/\S+$/.test(SUPABASE_URL)&&SUPABASE_ANON_KEY.length>20; }
 function kindNow(){ const t=document.querySelector('.tab[aria-selected="true"]'); return t&&t.dataset.tab==='epics'?'epics':'backlog'; }
@@ -1993,7 +2007,9 @@ function errText(e){
   if(e.status===429||/rate limit/i.test(m)) return 'Zbyt wiele prób w krótkim czasie — odczekaj chwilę i spróbuj ponownie.';
   if(/Failed to fetch|NetworkError|Load failed|network/i.test(m)) return 'Brak połączenia z bazą danych. Dashboard działa dalej lokalnie.';
   if(/mc_is_member|schema cache|does not exist|relation .* not/i.test(m)) return 'Baza nie jest jeszcze przygotowana — uruchom supabase/schema.sql w panelu Supabase.';
-  if(/row-level security|permission denied/i.test(m)) return 'Brak uprawnień — ten adres nie jest na liście dostępu.';
+  if(/invalid login credentials/i.test(m)) return 'Nieprawidłowe hasło zespołu.';
+  if(/email not confirmed/i.test(m)) return 'Konto wspólne nie jest potwierdzone — przy tworzeniu zaznacz „Auto Confirm User”.';
+  if(/row-level security|permission denied/i.test(m)) return 'Brak uprawnień do scenariuszy — sprawdź konfigurację bazy.';
   return 'Błąd bazy danych: '+m;
 }
 function setErr(m){ const b=$s('scErr'); b.textContent=m||''; b.classList.toggle('show',!!m); }
@@ -2021,7 +2037,8 @@ function render(){
   $s('scSession').hidden=!session;
   $s('scNoAccess').hidden=!(session&&member===false);
   $s('scMain').hidden=!(session&&member===true);
-  if(session){ $s('scUser').innerHTML='Zalogowano jako <b>'+esc(session.user.email)+'</b>'; $s('scNoAccessEmail').textContent=session.user.email; }
+  if(session&&document.activeElement!==$s('scSign')) $s('scSign').value=getSign();
+  if(!session&&document.activeElement!==$s('scNameAuth')) $s('scNameAuth').value=getSign();
   if(session&&member) renderList();
   updateChip();
 }
@@ -2033,14 +2050,14 @@ function renderList(){
         return '<li class="sc-item'+(on?' is-loaded':'')+'"><div class="sc-meta">'+
           '<div class="sc-name">'+esc(x.name)+(on?'<span class="sc-tag'+(dirty?' dirty':'')+'">'+(dirty?'wczytany · niezapisane zmiany':'wczytany')+'</span>':'')+'</div>'+
           (x.description?'<div class="sc-desc">'+esc(x.description)+'</div>':'')+
-          '<div class="sc-by">Ostatnia zmiana: '+esc(x.updated_by)+' · '+esc(fmtTs(x.updated_at))+(x.created_by!==x.updated_by?' · autor: '+esc(x.created_by):'')+'</div></div>'+
+          '<div class="sc-by">Ostatnia zmiana: '+esc(who(x.updated_name))+' · '+esc(fmtTs(x.updated_at))+(x.created_name&&x.created_name!==x.updated_name?' · autor: '+esc(x.created_name):'')+'</div></div>'+
           '<div class="sc-actions">'+
             '<button type="button" class="btn btn-ghost btn-sm" data-load="'+esc(x.id)+'" aria-label="Wczytaj scenariusz '+esc(x.name)+'">Wczytaj</button>'+
             '<button type="button" class="btn btn-ghost btn-sm" data-del="'+esc(x.id)+'" aria-label="Usuń scenariusz '+esc(x.name)+'">Usuń</button>'+
           '</div></li>'; }).join('');
   const rb=$s('scRemote');
   if(L&&L.deleted){ rb.textContent='Wczytany scenariusz „'+L.name+'” został usunięty przez inną osobę. Bieżące ustawienia możesz zapisać jako nowy scenariusz.'; rb.classList.add('show'); }
-  else if(L&&L.remote){ rb.innerHTML='<span>Nowa wersja „'+esc(L.name)+'” od '+esc(L.remote.by)+' ('+esc(fmtTs(L.remote.at))+').</span><button type="button" class="btn btn-ghost btn-sm" data-act="reload">Wczytaj nową wersję</button>'; rb.classList.add('show'); }
+  else if(L&&L.remote){ rb.innerHTML='<span>Nowa wersja „'+esc(L.name)+'” od: '+esc(who(L.remote.by))+' ('+esc(fmtTs(L.remote.at))+').</span><button type="button" class="btn btn-ghost btn-sm" data-act="reload">Wczytaj nową wersję</button>'; rb.classList.add('show'); }
   else rb.classList.remove('show');
   const ov=$s('scSaveOver');
   if(L&&!L.deleted){ ov.hidden=false; ov.textContent='Zapisz zmiany w „'+L.name+'”'; } else ov.hidden=true;
@@ -2082,7 +2099,7 @@ async function afterAuth(){
 }
 async function refresh(){
   if(!sb||!member) return;
-  const {data,error}=await sb.from(TABLE).select('id,kind,name,description,created_by,updated_by,created_at,updated_at').order('updated_at',{ascending:false}).limit(500);
+  const {data,error}=await sb.from(TABLE).select('id,kind,name,description,created_name,updated_name,created_at,updated_at').order('updated_at',{ascending:false}).limit(500);
   if(error){ setErr(errText(error)); return; }
   setErr(''); list=data||[];
   KINDS.forEach(k=>{ const L=loaded[k]; if(L&&!L.deleted&&!list.some(x=>x.id===L.id)) L.deleted=true; });
@@ -2094,14 +2111,13 @@ function subscribe(){
 function onChange(p){
   const row=(p.new&&p.new.id)?p.new:(p.old||{});
   const prev=list.find(x=>x.id===row.id);
-  const me=session&&String(session.user.email||'').toLowerCase();
   clearTimeout(refreshT); refreshT=setTimeout(refresh,300);
-  // własne zmiany: INSERT/UPDATE rozpoznajemy po autorze, DELETE (bez danych wiersza) po niedawnej operacji
-  if((p.eventType==='INSERT'&&row.created_by===me)||(p.eventType==='UPDATE'&&row.updated_by===me)||(p.eventType==='DELETE'&&isOwn(row.id))) return;
-  if(p.eventType==='INSERT') toast('Nowy scenariusz „'+row.name+'” ('+(KIND_LABEL[row.kind]||'')+') — '+row.created_by);
+  // własne zmiany: INSERT/UPDATE po identyfikatorze tej karty, DELETE (bez danych wiersza) po niedawnej operacji
+  if(((p.eventType==='INSERT'||p.eventType==='UPDATE')&&row.updated_client===CLIENT_ID)||(p.eventType==='DELETE'&&isOwn(row.id))) return;
+  if(p.eventType==='INSERT') toast('Nowy scenariusz „'+row.name+'” ('+(KIND_LABEL[row.kind]||'')+') — '+who(row.created_name));
   else if(p.eventType==='UPDATE'){
-    toast('Zaktualizowano scenariusz „'+row.name+'” — '+row.updated_by);
-    KINDS.forEach(k=>{ const L=loaded[k]; if(L&&L.id===row.id&&row.updated_at!==L.updated_at) L.remote={by:row.updated_by,at:row.updated_at}; });
+    toast('Zaktualizowano scenariusz „'+row.name+'” — '+who(row.updated_name));
+    KINDS.forEach(k=>{ const L=loaded[k]; if(L&&L.id===row.id&&row.updated_at!==L.updated_at) L.remote={by:row.updated_name,at:row.updated_at}; });
   } else if(p.eventType==='DELETE'){
     if(prev) toast('Usunięto scenariusz „'+prev.name+'”');
     KINDS.forEach(k=>{ const L=loaded[k]; if(L&&L.id===row.id) L.deleted=true; });
@@ -2115,7 +2131,7 @@ async function saveNew(){
   if(!name){ saveMsg('Podaj nazwę scenariusza.',true); $s('scName').focus(); return; }
   if(!a.validate()){ saveMsg('Popraw błędy w formularzu dashboardu przed zapisem.',true); return; }
   const data=a.snapshot(); busy(true);
-  const {data:row,error}=await sb.from(TABLE).insert({kind:k,name,description,data}).select('id,name,description,updated_at').single();
+  const {data:row,error}=await sb.from(TABLE).insert({kind:k,name,description,data,updated_name:getSign(),updated_client:CLIENT_ID}).select('id,name,description,updated_at').single();
   busy(false);
   if(error){ saveMsg(errText(error),true); return; }
   markOwn(row.id);
@@ -2127,14 +2143,14 @@ async function saveOver(){
   const k=kindNow(), a=st(k), L=loaded[k]; if(!L||L.deleted) return;
   if(!a.validate()){ saveMsg('Popraw błędy w formularzu dashboardu przed zapisem.',true); return; }
   const data=a.snapshot(), name=$s('scName').value.trim()||L.name, description=$s('scDesc').value.trim();
-  const patch={name,description,data}, cols='id,name,description,updated_at';
+  const patch={name,description,data,updated_name:getSign(),updated_client:CLIENT_ID}, cols='id,name,description,updated_at';
   busy(true); markOwn(L.id);
   // zapis tylko wtedy, gdy nikt nie zmienił scenariusza od momentu wczytania
   let {data:rows,error}=await sb.from(TABLE).update(patch).eq('id',L.id).eq('updated_at',L.updated_at).select(cols);
   if(!error&&rows&&!rows.length){
-    const {data:cur}=await sb.from(TABLE).select('updated_at,updated_by').eq('id',L.id).maybeSingle();
+    const {data:cur}=await sb.from(TABLE).select('updated_at,updated_name').eq('id',L.id).maybeSingle();
     if(!cur){ busy(false); L.deleted=true; render(); saveMsg('Scenariusz został w międzyczasie usunięty. Zapisz ustawienia jako nowy scenariusz.',true); return; }
-    if(!confirm('Scenariusz został w międzyczasie zmieniony przez '+cur.updated_by+' ('+fmtTs(cur.updated_at)+').\n\nNadpisać tamte zmiany Twoją wersją?')){ busy(false); saveMsg('Nie zapisano. Możesz wczytać nową wersję albo zapisać swoją jako nowy scenariusz.',true); return; }
+    if(!confirm('Scenariusz został w międzyczasie zmieniony (podpis: '+who(cur.updated_name)+', '+fmtTs(cur.updated_at)+').\n\nNadpisać tamte zmiany Twoją wersją?')){ busy(false); saveMsg('Nie zapisano. Możesz wczytać nową wersję albo zapisać swoją jako nowy scenariusz.',true); return; }
     markOwn(L.id);
     ({data:rows,error}=await sb.from(TABLE).update(patch).eq('id',L.id).select(cols));
   }
@@ -2180,24 +2196,16 @@ dlg.addEventListener('click',e=>{
 });
 $s('scSaveForm').addEventListener('submit',e=>{ e.preventDefault(); saveNew(); });
 $s('scSaveOver').addEventListener('click',saveOver);
-$s('scEmailForm').addEventListener('submit',async e=>{
-  e.preventDefault(); const email=$s('scEmail').value.trim().toLowerCase();
-  if(!/^\S+@\S+\.\S+$/.test(email)){ $s('scAuthMsg').textContent='Podaj poprawny adres e-mail.'; $s('scEmail').focus(); return; }
-  const btn=e.target.querySelector('button'); btn.disabled=true; setErr('');
-  const options={shouldCreateUser:true};
-  if(/^https?:$/.test(location.protocol)) options.emailRedirectTo=location.origin+location.pathname;
-  const {error}=await sb.auth.signInWithOtp({email,options});
-  btn.disabled=false;
-  if(error){ setErr(errText(error)); return; }
-  $s('scCodeForm').hidden=false;
-  $s('scAuthMsg').textContent='Wysłano wiadomość na '+email+'. Kliknij link w e-mailu'+(location.protocol==='file:'?' (link działa na stronie opublikowanej)':'')+' albo wpisz kod z wiadomości, jeśli go zawiera.';
+$s('scPassForm').addEventListener('submit',async e=>{
+  e.preventDefault(); const pass=$s('scPass').value;
+  if(!pass){ setErr('Wpisz hasło zespołu.'); $s('scPass').focus(); return; }
+  setSign($s('scNameAuth').value);
+  const btn=e.target.querySelector('button[type=submit]'); btn.disabled=true; setErr('');
+  const {error}=await sb.auth.signInWithPassword({email:SHARED_EMAIL,password:pass});
+  btn.disabled=false; $s('scPass').value='';
+  if(error){ setErr(errText(error)); $s('scPass').focus(); }
 });
-$s('scCodeForm').addEventListener('submit',async e=>{
-  e.preventDefault(); const token=$s('scCode').value.replace(/\s/g,''), email=$s('scEmail').value.trim().toLowerCase(); if(!token) return;
-  const {error}=await sb.auth.verifyOtp({email,token,type:'email'});
-  if(error) setErr(/expired|invalid/i.test(error.message)?'Kod jest nieprawidłowy lub wygasł. Wyślij nowy link.':errText(error));
-  else { $s('scCode').value=''; $s('scAuthMsg').textContent=''; }
-});
+$s('scSign').addEventListener('input',e=>setSign(e.target.value));
 // znacznik niezapisanych zmian po edycji dashboardu
 const onEdit=e=>{ if(dlg.contains(e.target)) return; clearTimeout(chipT); chipT=setTimeout(()=>{ updateChip(); if(dlg.open&&session&&member) renderList(); },250); };
 document.addEventListener('input',onEdit,true); document.addEventListener('change',onEdit,true);
