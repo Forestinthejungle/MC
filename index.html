@@ -14,6 +14,7 @@
     --radius:14px;
     --zone-base-bg:#eaf1fe; --zone-base-br:#c7dafc;
     --zone-cr-bg:#f6eefd; --zone-cr-br:#e6d4f7;
+    --prob-lo:#f59e0b; --prob-mid:#2563eb; --prob-hi:#16a34a;
   }
   :root[data-theme="dark"]{
     --bg:#0b1220; --surface:#111827; --surface-2:#0f1626; --text:#e8edf5; --muted:#9fb0c6;
@@ -23,6 +24,7 @@
     --grid:#1f2a3b; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
     --zone-base-bg:#0e1a2e; --zone-base-br:#1e3350;
     --zone-cr-bg:#1b1430; --zone-cr-br:#352350;
+    --prob-lo:#fbbf24; --prob-mid:#60a5fa; --prob-hi:#22c55e;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
@@ -269,7 +271,13 @@
         <div class="cards" id="completionCards"></div>
         <div class="banner banner-info" id="completionMsg" role="status"></div>
         <div class="chart-card">
-          <h4 class="chart-title">Skumulowane prawdopodobieństwo ukończenia backlogu</h4>
+          <h4 class="chart-title">Rozkład terminu ukończenia całości</h4>
+          <p class="hint" style="margin-top:0">Oś X: data zakończenia sprintu · Oś Y: odsetek symulacji, w których backlog kończy się dokładnie w tym sprincie. Pionowe linie to wybrane progi prawdopodobieństwa.</p>
+          <canvas id="histChart" width="760" height="320" role="img" aria-label="Rozkład terminu ukończenia całości backlogu"></canvas>
+          <div class="legend" id="histLegend"></div>
+        </div>
+        <div class="chart-card">
+          <h4 class="chart-title">Prawdopodobieństwo ukończenia w czasie (skumulowane)</h4>
           <p class="hint" style="margin-top:0">Oś X: daty zakończenia sprintów · Oś Y: odsetek symulacji, które do danej daty ukończyły cały backlog.</p>
           <canvas id="chart" width="760" height="340" role="img" aria-label="Wykres skumulowanego prawdopodobieństwa ukończenia backlogu w czasie"></canvas>
           <div class="legend" id="chartLegend"></div>
@@ -282,6 +290,12 @@
         <div class="meta" id="deadlineMeta"></div>
         <div class="cards" id="quantityCards"></div>
         <div class="banner banner-info" id="quantityMsg" role="status"></div>
+        <div class="chart-card">
+          <h4 class="chart-title" id="qtyChartTitle">Ile elementów dostarczymy do daty granicznej?</h4>
+          <p class="hint" style="margin-top:0">Oś X: liczba dostarczonych elementów · Oś Y: odsetek symulacji. Pionowe linie: progi „co najmniej X elementów przy danym prawdopodobieństwie”.</p>
+          <canvas id="qtyChart" width="760" height="320" role="img" aria-label="Rozkład liczby elementów dostarczonych do daty granicznej"></canvas>
+          <div class="legend" id="qtyLegend"></div>
+        </div>
       </section>
     </div>
 
@@ -468,8 +482,9 @@ function computeModel(cfg){
       const share = s.backlog>0 ? items/s.backlog*100 : null;
       r.quantity.perProb.push({p,items,share});
     });
-    // dane wykresu (histogram ukończeń)
+    // dane wykresów: skumulowana krzywa + rozkład terminów + rozkład dostaw
     r.chart=buildChart(compArr[i], startMs, len, r.completion);
+    r.deliveredDist=buildDeliveredDist(sortedDeliv[i], s.backlog);
     return r;
   });
 
@@ -489,8 +504,15 @@ function buildChart(compArr, startMs, len, completionThresholds){
   for(let s=1;s<=maxS;s++){ acc+=hist[s]; if(acc/N>=0.995){ cutoff=s; break; } }
   let maxThr=0; completionThresholds.forEach(c=>{ if(c.sprintCount&&c.sprintCount>maxThr) maxThr=c.sprintCount; });
   cutoff=Math.max(cutoff,maxThr);
-  for(let s=1;s<=cutoff;s++){ cum+=hist[s]; pts.push({sprint:s,dateMs:sprintEnd(startMs,s,len),frac:cum/N}); }
-  return {points:pts, maxSprint:cutoff};
+  const counts=[];
+  for(let s=1;s<=cutoff;s++){ cum+=hist[s]; counts.push(hist[s]); pts.push({sprint:s,dateMs:sprintEnd(startMs,s,len),frac:cum/N}); }
+  return {points:pts, maxSprint:cutoff, counts:counts, total:N};
+}
+
+function buildDeliveredDist(arr, backlog){
+  const counts=new Array(backlog+1).fill(0);
+  for(let k=0;k<arr.length;k++){ const v=arr[k]; if(v>=0&&v<=backlog) counts[v]++; }
+  return {counts:counts, total:arr.length, backlog:backlog};
 }
 
 /* =========================================================================
@@ -621,17 +643,18 @@ function render(model, data){
   const base=model.results[0];
   const probsPct=data.probsPct;
 
+  const pc=probColors();
   // ---- SEKCJA 2: karty ukończenia ----
   const cc=$('completionCards'); cc.innerHTML='';
   const cmsg=$('completionMsg'); cmsg.className='banner banner-info';
   base.completion.forEach((c,idx)=>{
     const pct=probsPct[idx];
-    const div=document.createElement('div'); div.className='card';
+    const div=document.createElement('div'); div.className='card'; div.style.borderTop='3px solid '+pc[idx];
     let big,sub,interp;
     if(c.noDate){ big='Brak prognozy'; sub=c.capped?'Przekroczono limit sprintów':'Brak prognozowanej daty ukończenia'; interp=''; }
     else { big=fmtDate(c.dateMs); sub=c.sprintCount+' '+sprintWord(c.sprintCount);
       interp='W co najmniej '+pct+'% symulacji wszystkie elementy zostały ukończone do tej daty włącznie.'; }
-    div.innerHTML='<div class="plabel">'+pct+'%</div><div class="big">'+big+'</div>'+
+    div.innerHTML='<div class="plabel" style="color:'+pc[idx]+'">'+pct+'%</div><div class="big">'+big+'</div>'+
       '<div class="sub">'+sub+'</div>'+(interp?'<div class="interp">'+interp+'</div>':'');
     cc.appendChild(div);
   });
@@ -640,7 +663,8 @@ function render(model, data){
   else if(base.backlog>0 && data.history.length===1){ cmsg.textContent='Historia zawiera jedną obserwację — każdy symulowany sprint korzysta z tej samej wartości ('+data.history[0]+').'; cmsg.classList.add('show'); }
   else cmsg.classList.remove('show');
 
-  // ---- WYKRES ----
+  // ---- WYKRESY STREFY PODSTAWOWEJ ----
+  drawCompletionHist(base, probsPct, data);
   drawChart(base, probsPct);
 
   // ---- SEKCJA 3: prognoza ilościowa ----
@@ -651,10 +675,9 @@ function render(model, data){
   const qmsg=$('quantityMsg'); qmsg.className='banner banner-info';
   base.quantity.perProb.forEach((q,idx)=>{
     const pct=probsPct[idx];
-    const div=document.createElement('div'); div.className='card';
-    const shareTxt = (q.share!==null) ? ' • '+q.share.toFixed(1)+'% backlogu' : '';
+    const div=document.createElement('div'); div.className='card'; div.style.borderTop='3px solid '+pc[idx];
     const interp='W co najmniej '+pct+'% symulacji do tej daty ukończono co najmniej '+q.items+' '+elemWord(q.items)+'.';
-    div.innerHTML='<div class="plabel">'+pct+'%</div><div class="big">'+q.items+' '+elemWord(q.items)+'</div>'+
+    div.innerHTML='<div class="plabel" style="color:'+pc[idx]+'">'+pct+'%</div><div class="big">'+q.items+' '+elemWord(q.items)+'</div>'+
       '<div class="sub">'+(q.share!==null?q.share.toFixed(1)+'% backlogu':'backlog pusty')+'</div>'+
       '<div class="interp">'+interp+'</div>';
     qc.appendChild(div);
@@ -663,6 +686,10 @@ function render(model, data){
   else if(base.emptyBacklog){ qmsg.textContent='Backlog jest pusty — nie ma elementów do dostarczenia.'; qmsg.classList.add('show'); }
   else if(base.allZeros){ qmsg.textContent='Historia z samymi zerami — prognozowana liczba dostarczonych elementów wynosi 0.'; qmsg.classList.add('show'); }
   else qmsg.classList.remove('show');
+
+  // tytuł + histogram liczby elementów do daty granicznej
+  $('qtyChartTitle').textContent='Ile elementów dostarczymy do '+fmtDate(data.deadlineMs)+'?';
+  drawDeliveredHist(base, probsPct, data, model);
 
   // ---- STREFA CR ----
   renderCrSection(model, data);
@@ -754,6 +781,69 @@ function drawCRChart(model, data){
   legend.innerHTML=lg;
 }
 
+/* paleta progów: najniższy → bursztyn, środkowy → niebieski, najwyższy → ZIELONY */
+function probColors(){
+  const cs=getComputedStyle(document.documentElement); const g=n=>cs.getPropertyValue(n).trim();
+  return [g('--prob-lo'),g('--prob-mid'),g('--prob-hi')];
+}
+function emptyMsg(ctx,col,w,h,txt){
+  ctx.fillStyle=col.muted; ctx.font='14px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,w/2,h/2);
+}
+
+/* Histogram: rozkład terminu ukończenia całości (ile symulacji kończy w danym sprincie) */
+function drawCompletionHist(base, probsPct, data){
+  const canvas=$('histChart'); const col=themeColors(); const pc=probColors(); const legend=$('histLegend');
+  const dpr=window.devicePixelRatio||1; const cssW=canvas.clientWidth||760; const cssH=320;
+  canvas.width=cssW*dpr; canvas.height=cssH*dpr; canvas.style.height=cssH+'px';
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cssW,cssH);
+  if(!base.chart){ emptyMsg(ctx,col,cssW,cssH,base.emptyBacklog?'Backlog pusty — brak rozkładu terminów':'Brak prognozowanego rozkładu terminów'); legend.innerHTML=''; return; }
+  const counts=base.chart.counts, total=base.chart.total, n=counts.length;
+  let maxC=1; for(const c of counts) if(c>maxC) maxC=c;
+  const padL=46,padR=18,padT=20,padB=44; const W=cssW-padL-padR, Hh=cssH-padT-padB;
+  const barW=W/n; const xOf=s=>padL+(s-1)*barW; const yOf=f=>padT+(1-f)*Hh;
+  const maxFrac=maxC/total;
+  ctx.strokeStyle=col.grid; ctx.lineWidth=1; ctx.font='11px system-ui'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const f=i/4,y=yOf(f); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.fillStyle=col.muted; ctx.fillText((f*maxFrac*100).toFixed(1)+'%',padL-8,y); }
+  ctx.fillStyle=col.accent; ctx.globalAlpha=.32;
+  for(let s=1;s<=n;s++){ const h=counts[s-1]/maxC; const x=xOf(s),y=yOf(h); ctx.fillRect(x+barW*0.12,y,Math.max(1,barW*0.76),(padT+Hh)-y); }
+  ctx.globalAlpha=1;
+  ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillStyle=col.muted;
+  const ticks=Math.min(6,n);
+  for(let i=0;i<=ticks;i++){ const s=Math.max(1,Math.round(i/ticks*n)); const x=xOf(s)+barW/2; ctx.fillText(fmtDate(sprintEnd(data.startMs,s,data.len)).slice(0,5),x,padT+Hh+8); }
+  base.completion.forEach((c,idx)=>{ if(c.noDate||!c.sprintCount) return; const x=xOf(c.sprintCount)+barW/2;
+    ctx.strokeStyle=pc[idx]; ctx.lineWidth=2.2; ctx.setLineDash([5,3]); ctx.beginPath(); ctx.moveTo(x,padT-4); ctx.lineTo(x,padT+Hh); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=pc[idx]; ctx.font='bold 10px system-ui'; ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText(probsPct[idx]+'%',x,padT-5); });
+  let lg=''; base.completion.forEach((c,idx)=>{ if(c.noDate) return; lg+='<span><i style="background:'+pc[idx]+'"></i>'+probsPct[idx]+'% → '+fmtDate(c.dateMs)+'</span>'; });
+  legend.innerHTML=lg;
+}
+
+/* Histogram: rozkład liczby elementów dostarczonych do daty granicznej */
+function drawDeliveredHist(base, probsPct, data, model){
+  const canvas=$('qtyChart'); const col=themeColors(); const pc=probColors(); const legend=$('qtyLegend');
+  const dpr=window.devicePixelRatio||1; const cssW=canvas.clientWidth||760; const cssH=320;
+  canvas.width=cssW*dpr; canvas.height=cssH*dpr; canvas.style.height=cssH+'px';
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cssW,cssH);
+  if(!base.deliveredDist){ emptyMsg(ctx,col,cssW,cssH,base.emptyBacklog?'Backlog pusty — brak elementów do dostarczenia':'Historia z samymi zerami — 0 dostarczonych elementów'); legend.innerHTML=''; return; }
+  const counts=base.deliveredDist.counts, total=base.deliveredDist.total, backlog=base.deliveredDist.backlog; const n=backlog+1;
+  let maxC=1; for(const c of counts) if(c>maxC) maxC=c;
+  const padL=46,padR=18,padT=20,padB=44; const W=cssW-padL-padR, Hh=cssH-padT-padB;
+  const barW=W/n; const xOf=v=>padL+v*barW; const yOf=f=>padT+(1-f)*Hh;
+  const maxFrac=maxC/total;
+  ctx.strokeStyle=col.grid; ctx.lineWidth=1; ctx.font='11px system-ui'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const f=i/4,y=yOf(f); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.fillStyle=col.muted; ctx.fillText((f*maxFrac*100).toFixed(1)+'%',padL-8,y); }
+  ctx.fillStyle=col.accent; ctx.globalAlpha=.32;
+  for(let v=0;v<=backlog;v++){ const h=counts[v]/maxC; const x=xOf(v),y=yOf(h); ctx.fillRect(x+barW*0.12,y,Math.max(1,barW*0.76),(padT+Hh)-y); }
+  ctx.globalAlpha=1;
+  ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillStyle=col.muted;
+  const ticks=Math.min(8,Math.max(1,backlog));
+  for(let i=0;i<=ticks;i++){ const v=Math.round(i/ticks*backlog); const x=xOf(v)+barW/2; ctx.fillText(String(v),x,padT+Hh+8); }
+  base.quantity.perProb.forEach((q,idx)=>{ const x=xOf(q.items)+barW/2;
+    ctx.strokeStyle=pc[idx]; ctx.lineWidth=2.2; ctx.setLineDash([5,3]); ctx.beginPath(); ctx.moveTo(x,padT-4); ctx.lineTo(x,padT+Hh); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=pc[idx]; ctx.font='bold 10px system-ui'; ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText('≥'+q.items+' ('+probsPct[idx]+'%)',x,padT-5); });
+  let lg=''; base.quantity.perProb.forEach((q,idx)=>{ lg+='<span><i style="background:'+pc[idx]+'"></i>'+probsPct[idx]+'% → ≥ '+q.items+' '+elemWord(q.items)+'</span>'; });
+  legend.innerHTML=lg;
+}
+
 function scnPill(r,i){
   const cls=i===0?'pill-cr1':'pill-cr2';
   return '<span class="pill '+cls+'">'+r.label.replace('Scenariusz ','')+'</span><br><span style="font-size:.74rem;color:var(--muted)">'+r.backlog+' el.</span>';
@@ -821,8 +911,8 @@ function drawChart(base, probsPct){
   ctx.lineTo(xOf(maxS),yOf(0)); ctx.closePath();
   ctx.globalAlpha=.10; ctx.fillStyle=col.accent; ctx.fill(); ctx.globalAlpha=1;
 
-  // progi
-  const markColors=[col.cr1,col.accent,col.cr2];
+  // progi (paleta: najniższy bursztyn, środkowy niebieski, najwyższy zielony)
+  const markColors=probColors();
   base.completion.forEach((c,idx)=>{
     if(c.noDate||!c.sprintCount) return;
     const frac=probsPct[idx]/100;
@@ -921,8 +1011,11 @@ function resetDefaults(){
 
 function redrawCharts(){
   if(!lastModel || !lastModel._data) return;
-  drawChart(lastModel.results[0], lastModel._data.probsPct);
-  drawCRChart(lastModel, lastModel._data);
+  const d=lastModel._data, base=lastModel.results[0];
+  drawCompletionHist(base, d.probsPct, d);
+  drawChart(base, d.probsPct);
+  drawDeliveredHist(base, d.probsPct, d, lastModel);
+  drawCRChart(lastModel, d);
 }
 /* ---- MOTYW ---- */
 function applyTheme(t){
