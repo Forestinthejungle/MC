@@ -12,6 +12,8 @@
     --ok:#047857; --warn:#b45309; --warn-soft:#fef3c7; --err:#dc2626; --err-soft:#fee2e2;
     --grid:#e5e7eb; --shadow:0 1px 2px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.06);
     --radius:14px;
+    --zone-base-bg:#eaf1fe; --zone-base-br:#c7dafc;
+    --zone-cr-bg:#f6eefd; --zone-cr-br:#e6d4f7;
   }
   :root[data-theme="dark"]{
     --bg:#0b1220; --surface:#111827; --surface-2:#0f1626; --text:#e8edf5; --muted:#9fb0c6;
@@ -19,6 +21,8 @@
     --cr1:#a78bfa; --cr1-soft:#241a3d; --cr2:#f472b6; --cr2-soft:#3a1626;
     --ok:#34d399; --warn:#fbbf24; --warn-soft:#3a2d08; --err:#f87171; --err-soft:#3a1414;
     --grid:#1f2a3b; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    --zone-base-bg:#0e1a2e; --zone-base-br:#1e3350;
+    --zone-cr-bg:#1b1430; --zone-cr-br:#352350;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
@@ -111,8 +115,6 @@
   .banner-stale{background:var(--warn-soft);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent)}
   .banner-info{background:var(--accent-soft);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent)}
   .banner-err{background:var(--err-soft);color:var(--err);border:1px solid color-mix(in srgb,var(--err) 35%,transparent)}
-  .deadline-box{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
-  .deadline-box .field{margin:0;min-width:200px;flex:1}
   .meta{font-size:.84rem;color:var(--muted);margin:2px 0 12px}
   /* CR scenario editor */
   .cr-scn{border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--surface-2)}
@@ -123,7 +125,25 @@
   .cr-calc{font-size:.83rem;color:var(--muted);margin-top:8px}
   .cr-calc b{color:var(--text)}
   canvas{display:block;width:100%;height:auto;border-radius:12px}
-  .chart-card{padding:14px}
+  .chart-card{padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-top:14px}
+  .chart-title{font-size:.95rem;margin-bottom:4px}
+  /* strefy: podstawa vs CR */
+  .zone{border-radius:16px;padding:18px;margin-bottom:22px;border:1px solid var(--border);box-shadow:var(--shadow);position:relative}
+  .zone-base{background:var(--zone-base-bg);border-color:var(--zone-base-br)}
+  .zone-cr{background:var(--zone-cr-bg);border-color:var(--zone-cr-br)}
+  .zone-head{display:flex;gap:14px;align-items:flex-start;margin-bottom:16px;padding-bottom:14px;border-bottom:1px dashed var(--border-strong)}
+  .zone-badge{flex:none;font-size:.72rem;font-weight:800;letter-spacing:.05em;padding:6px 10px;border-radius:9px;background:var(--accent);color:#fff;white-space:nowrap;margin-top:2px}
+  .zone-badge.badge-cr{background:var(--cr1)}
+  .zone-title{font-size:1.12rem;font-weight:750}
+  .zone-sub{margin:3px 0 0;color:var(--muted);font-size:.9rem}
+  .zone .section{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+  .sec-h{font-size:1.02rem;font-weight:700;margin-bottom:4px}
+  .zone-cr .sec-h{color:var(--cr1)}
+  .sidebar-group{margin-top:16px;padding:14px;border-radius:13px;background:var(--cr1-soft);border:1px solid color-mix(in srgb,var(--cr1) 28%,transparent)}
+  .sidebar-group-head{font-weight:700;font-size:.95rem;margin-bottom:6px;display:flex;align-items:center;color:var(--cr1)}
+  .sidebar-group .cr-scn{background:var(--surface);margin-bottom:10px}
+  .sidebar-group .cr-scn .row{grid-template-columns:1fr 1fr}
+  .sidebar-group .cr-scn .row > div:last-child{display:none}
   details.help{border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow)}
   details.help summary{cursor:pointer;padding:14px 18px;font-weight:650;list-style:none}
   details.help summary::-webkit-details-marker{display:none}
@@ -198,7 +218,26 @@
         <div class="err-msg" hidden></div>
       </div>
 
-      <div class="btn-row">
+      <div class="field" id="f-deadline">
+        <label for="deadline">Data graniczna dostawy</label>
+        <input type="date" id="deadline" value="2027-03-31">
+        <div class="hint">Dotyczy pytania „Ile dostarczymy do wybranej daty?”.</div>
+        <div class="err-msg" hidden></div>
+      </div>
+
+      <div class="sidebar-group" id="f-cr">
+        <div class="sidebar-group-head">
+          <span class="pill pill-cr1" style="margin-right:6px">CR</span> Zmiana zakresu
+        </div>
+        <p class="hint" style="margin:0 0 10px">Maksymalnie dwa scenariusze, każdy liczony względem pierwotnego backlogu.</p>
+        <div id="crEditors"></div>
+        <div class="btn-row" id="crAddRow" style="margin-bottom:6px">
+          <button type="button" class="btn btn-ghost btn-sm" id="crAdd">+ Dodaj drugi scenariusz</button>
+        </div>
+        <div class="banner banner-err" id="crErr" role="alert"></div>
+      </div>
+
+      <div class="btn-row" style="margin-top:16px">
         <button type="submit" class="btn btn-primary" id="recalc">Przelicz prognozę</button>
         <button type="button" class="btn btn-ghost" id="reset">Przywróć dane przykładowe</button>
       </div>
@@ -213,59 +252,72 @@
     </div>
     <div class="banner banner-err" id="globalErr" role="alert" aria-live="assertive"></div>
 
-    <!-- SEKCJA 2 -->
-    <section class="section panel panel-pad" id="sec-completion">
-      <h2>Kiedy ukończymy cały backlog?</h2>
-      <p class="lead">Poniżej pokazujemy daty ukończenia wszystkich elementów backlogu przy trzech wybranych poziomach prawdopodobieństwa.</p>
-      <div class="cards" id="completionCards"></div>
-      <div class="banner banner-info" id="completionMsg" role="status"></div>
-      <div class="panel chart-card" style="margin-top:14px;background:var(--surface-2)">
-        <h3 style="font-size:.95rem;margin-bottom:4px">Skumulowane prawdopodobieństwo ukończenia backlogu</h3>
-        <p class="hint" style="margin-top:0">Oś X: daty zakończenia sprintów · Oś Y: odsetek symulacji, które do danej daty ukończyły cały backlog.</p>
-        <canvas id="chart" width="760" height="340" role="img" aria-label="Wykres skumulowanego prawdopodobieństwa ukończenia backlogu w czasie"></canvas>
-        <div class="legend" id="chartLegend"></div>
-      </div>
-    </section>
-
-    <!-- SEKCJA 3 -->
-    <section class="section panel panel-pad" id="sec-quantity">
-      <h2>Ile dostarczymy do wybranej daty?</h2>
-      <div class="deadline-box">
-        <div class="field" id="f-deadline">
-          <label for="deadline">Data graniczna dostawy</label>
-          <input type="date" id="deadline" value="2027-03-31">
-          <div class="err-msg" hidden></div>
+    <!-- ============ STREFA PODSTAWOWA ============ -->
+    <div class="zone zone-base">
+      <div class="zone-head">
+        <span class="zone-badge">PODSTAWA</span>
+        <div>
+          <h2 class="zone-title">Prognoza podstawowa</h2>
+          <p class="zone-sub">Odpowiedzi dla <b>pierwotnego backlogu</b> (bez zmian zakresu).</p>
         </div>
-        <div class="meta" id="deadlineMeta" style="margin:0"></div>
-      </div>
-      <div class="cards" id="quantityCards"></div>
-      <div class="banner banner-info" id="quantityMsg" role="status"></div>
-    </section>
-
-    <!-- SEKCJA 4 -->
-    <section class="section panel panel-pad" id="sec-cr">
-      <h2>CR — zmiana zakresu</h2>
-      <p class="lead">Porównanie prognozy bazowej z maksymalnie dwoma scenariuszami zmiany zakresu. Każdy scenariusz liczony jest względem pierwotnego backlogu.</p>
-
-      <div id="crEditors"></div>
-      <div class="btn-row" id="crAddRow" style="margin-bottom:16px">
-        <button type="button" class="btn btn-ghost btn-sm" id="crAdd">+ Dodaj drugi scenariusz</button>
       </div>
 
-      <div class="banner banner-err" id="crErr" role="alert"></div>
+      <!-- SEKCJA 2 -->
+      <section class="section" id="sec-completion">
+        <h3 class="sec-h">Kiedy ukończymy cały backlog?</h3>
+        <p class="lead">Poniżej pokazujemy daty ukończenia wszystkich elementów backlogu przy trzech wybranych poziomach prawdopodobieństwa.</p>
+        <div class="cards" id="completionCards"></div>
+        <div class="banner banner-info" id="completionMsg" role="status"></div>
+        <div class="chart-card">
+          <h4 class="chart-title">Skumulowane prawdopodobieństwo ukończenia backlogu</h4>
+          <p class="hint" style="margin-top:0">Oś X: daty zakończenia sprintów · Oś Y: odsetek symulacji, które do danej daty ukończyły cały backlog.</p>
+          <canvas id="chart" width="760" height="340" role="img" aria-label="Wykres skumulowanego prawdopodobieństwa ukończenia backlogu w czasie"></canvas>
+          <div class="legend" id="chartLegend"></div>
+        </div>
+      </section>
 
-      <h3 style="font-size:.95rem;margin:14px 0 8px">Tabela 1 — data ukończenia całości</h3>
-      <div class="tbl-wrap"><table id="crTable1"></table></div>
+      <!-- SEKCJA 3 -->
+      <section class="section" id="sec-quantity" style="margin-bottom:0">
+        <h3 class="sec-h">Ile dostarczymy do wybranej daty?</h3>
+        <div class="meta" id="deadlineMeta"></div>
+        <div class="cards" id="quantityCards"></div>
+        <div class="banner banner-info" id="quantityMsg" role="status"></div>
+      </section>
+    </div>
 
-      <h3 style="font-size:.95rem;margin:18px 0 8px">Tabela 2 — liczba elementów do daty granicznej</h3>
-      <div class="tbl-wrap"><table id="crTable2"></table></div>
+    <!-- ============ STREFA SCENARIUSZY CR ============ -->
+    <div class="zone zone-cr" id="zone-cr">
+      <div class="zone-head">
+        <span class="zone-badge badge-cr">SCENARIUSZE CR</span>
+        <div>
+          <h2 class="zone-title">Scenariusze alternatywne (po uwzględnieniu CR)</h2>
+          <p class="zone-sub">Te same pytania, ale <b>ze zmienionym zakresem</b>. Krzywa bazowa jest widoczna w tle do porównania.</p>
+        </div>
+      </div>
 
-      <p class="hint" style="margin-top:14px">
-        Model stosuje <b>to samo tempo dostarczania</b> we wszystkich scenariuszach i traktuje zmieniony zakres jako dostępny od początku prac.
-        Przy wzroście backlogu liczba dostarczonych elementów do terminu może pozostać taka sama, udział ukończonego zakresu może spaść,
-        a data ukończenia całości może się przesunąć.
-      </p>
-    </section>
+      <div class="banner banner-info" id="crNoneMsg" role="status"></div>
+
+      <!-- CR: wykres skumulowany (baza w tle + CR) -->
+      <section class="section" id="sec-cr-chart">
+        <h3 class="sec-h">Kiedy ukończymy całość? — porównanie ze scenariuszami CR</h3>
+        <p class="lead">Skumulowane prawdopodobieństwo ukończenia backlogu. Linia bazowa (pierwotny zakres) pokazana jest w tle, krzywe CR — wyraźnym kolorem.</p>
+        <div class="chart-card">
+          <canvas id="crChart" width="760" height="360" role="img" aria-label="Porównanie skumulowanego prawdopodobieństwa ukończenia backlogu: baza i scenariusze CR"></canvas>
+          <div class="legend" id="crChartLegend"></div>
+        </div>
+      </section>
+
+      <!-- CR: tabela liczby elementów -->
+      <section class="section" id="sec-cr-table" style="margin-bottom:0">
+        <h3 class="sec-h">Ile dostarczymy do daty granicznej? — porównanie</h3>
+        <div class="tbl-wrap"><table id="crTable2"></table></div>
+        <p class="hint" style="margin-top:14px">
+          Model stosuje <b>to samo tempo dostarczania</b> we wszystkich scenariuszach i traktuje zmieniony zakres jako dostępny od początku prac.
+          Przy wzroście backlogu liczba dostarczonych elementów do terminu może pozostać taka sama, udział ukończonego zakresu może spaść,
+          a data ukończenia całości może się przesunąć.
+        </p>
+      </section>
+    </div>
 
     <!-- SEKCJA POMOCY -->
     <details class="help" id="help">
@@ -612,8 +664,8 @@ function render(model, data){
   else if(base.allZeros){ qmsg.textContent='Historia z samymi zerami — prognozowana liczba dostarczonych elementów wynosi 0.'; qmsg.classList.add('show'); }
   else qmsg.classList.remove('show');
 
-  // ---- SEKCJA 4: CR ----
-  renderCrTables(model, data);
+  // ---- STREFA CR ----
+  renderCrSection(model, data);
 
   // limit zabezpieczający
   const ge=$('globalErr');
@@ -621,34 +673,20 @@ function render(model, data){
   else ge.classList.remove('show');
 }
 
-function renderCrTables(model, data){
+function renderCrSection(model, data){
   const probsPct=data.probsPct;
   const base=model.results[0];
   const crs=model.results.slice(1); // aktywne scenariusze (już policzone)
-  const t1=$('crTable1'), t2=$('crTable2');
+  const noneMsg=$('crNoneMsg'); noneMsg.className='banner banner-info';
+  if(crs.length===0){ noneMsg.textContent='Brak aktywnych scenariuszy CR. Dodaj scenariusz zmiany zakresu w panelu po lewej, aby porównać go z prognozą podstawową.'; noneMsg.classList.add('show'); }
+  else noneMsg.classList.remove('show');
 
-  // Nagłówki
-  let head1='<caption>Porównanie dat ukończenia całości (różnice w dniach kalendarzowych względem bazy)</caption><thead><tr><th>Poziom</th><th>Baza</th>';
-  crs.forEach((r,i)=>{ head1+='<th>'+scnPill(r,i)+'<br>data</th><th>Δ dni</th>'; });
-  head1+='</tr></thead>';
-  let body1='<tbody>';
-  probsPct.forEach((pct,idx)=>{
-    body1+='<tr><td><span class="pill pill-base">'+pct+'%</span></td>';
-    const b=base.completion[idx];
-    body1+='<td>'+(b.noDate?'—':fmtDate(b.dateMs))+'</td>';
-    crs.forEach((r)=>{
-      const c=r.completion[idx];
-      let dateTxt=c.noDate?'—':fmtDate(c.dateMs);
-      let diffTxt='—';
-      if(!b.noDate && !c.noDate){ const d=daysBetween(b.dateMs,c.dateMs); diffTxt=deltaSpan(d,'dni'); }
-      body1+='<td>'+dateTxt+'</td><td>'+diffTxt+'</td>';
-    });
-    body1+='</tr>';
-  });
-  body1+='</tbody>';
-  t1.innerHTML=head1+body1;
+  // Wykres nakładkowy (baza w tle + scenariusze CR)
+  drawCRChart(model, data);
 
-  let head2='<caption>Porównanie liczby elementów do daty granicznej ('+(model.K>0?fmtDate(model.lastEndMs):'brak sprintów')+')</caption><thead><tr><th>Poziom</th><th>Baza (szt.)</th>';
+  // Tabela: liczba elementów do daty granicznej
+  const t2=$('crTable2');
+  let head2='<caption>Liczba elementów ukończonych do daty granicznej ('+(model.K>0?fmtDate(model.lastEndMs):'brak sprintów')+')</caption><thead><tr><th>Poziom</th><th>Baza (szt.)</th>';
   crs.forEach((r,i)=>{ head2+='<th>'+scnPill(r,i)+'<br>szt.</th><th>Δ szt.</th><th>Udział zakresu</th>'; });
   head2+='</tr></thead>';
   let body2='<tbody>';
@@ -666,6 +704,54 @@ function renderCrTables(model, data){
   });
   body2+='</tbody>';
   t2.innerHTML=head2+body2;
+}
+
+function drawCRChart(model, data){
+  const canvas=$('crChart'); const col=themeColors(); const legend=$('crChartLegend');
+  const probsPct=data.probsPct;
+  const dpr=window.devicePixelRatio||1; const cssW=canvas.clientWidth||760; const cssH=360;
+  canvas.width=cssW*dpr; canvas.height=cssH*dpr; canvas.style.height=cssH+'px';
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cssW,cssH);
+  const base=model.results[0];
+  if(!base.chart){
+    ctx.fillStyle=col.muted; ctx.font='14px system-ui'; ctx.textAlign='center';
+    ctx.fillText(base.emptyBacklog?'Backlog pusty — brak danych do wykresu':'Brak prognozowanej krzywej ukończenia', cssW/2, cssH/2);
+    legend.innerHTML=''; return;
+  }
+  // wspólny zakres osi X (najdłuższy scenariusz)
+  let maxS=base.chart.maxSprint;
+  model.results.forEach(r=>{ if(r.chart&&r.chart.maxSprint>maxS) maxS=r.chart.maxSprint; });
+  const padL=46,padR=18,padT=16,padB=46; const W=cssW-padL-padR, Hh=cssH-padT-padB;
+  const xOf=s=>padL+(maxS<=1?0:s/maxS*W); const yOf=f=>padT+(1-f)*Hh;
+
+  // siatka Y
+  ctx.strokeStyle=col.grid; ctx.fillStyle=col.muted; ctx.lineWidth=1; ctx.font='11px system-ui';
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const f=i/4,y=yOf(f); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.fillText(Math.round(f*100)+'%',padL-8,y); }
+  // oś X: daty
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  const ticks=Math.min(6,maxS);
+  for(let i=0;i<=ticks;i++){ const s=Math.round(i/ticks*maxS); if(s<1) continue; const x=xOf(s); const dateMs=sprintEnd(data.startMs,s,data.len);
+    ctx.strokeStyle=col.grid; ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,padT+Hh); ctx.stroke();
+    ctx.fillStyle=col.muted; ctx.fillText(fmtDate(dateMs).slice(0,5),x,padT+Hh+8); }
+
+  function curve(r,color,width,dash,fill){
+    const pts=r.chart.points; ctx.strokeStyle=color; ctx.lineWidth=width; ctx.setLineDash(dash||[]);
+    ctx.beginPath(); ctx.moveTo(xOf(0),yOf(0)); let prevY=yOf(0);
+    pts.forEach(p=>{ const x=xOf(p.sprint),y=yOf(p.frac); ctx.lineTo(x,prevY); ctx.lineTo(x,y); prevY=y; });
+    ctx.lineTo(xOf(maxS),prevY); ctx.stroke(); ctx.setLineDash([]);
+    if(fill){ ctx.lineTo(xOf(maxS),yOf(0)); ctx.closePath(); ctx.globalAlpha=.07; ctx.fillStyle=color; ctx.fill(); ctx.globalAlpha=1; }
+  }
+  // baza w tle — przygaszona, przerywana, z wypełnieniem (punkt odniesienia)
+  curve(base, col.muted, 2, [5,4], true);
+  // scenariusze CR — wyraźne kolory
+  model.results.forEach((r,i)=>{ if(i===0||!r.chart) return; const color=i===1?col.cr1:col.cr2; curve(r,color,2.8,[]); });
+
+  // legenda
+  let lg='<span><i style="background:'+col.muted+'"></i>Baza — '+base.backlog+' el.</span>';
+  model.results.forEach((r,i)=>{ if(i===0) return; const color=i===1?col.cr1:col.cr2;
+    lg+='<span><i style="background:'+color+'"></i>'+r.label.replace('Scenariusz ','')+' — '+r.backlog+' el.'+(r.chart?'':' (natychmiast / brak krzywej)')+'</span>'; });
+  legend.innerHTML=lg;
 }
 
 function scnPill(r,i){
@@ -833,12 +919,17 @@ function resetDefaults(){
   recalc();
 }
 
+function redrawCharts(){
+  if(!lastModel || !lastModel._data) return;
+  drawChart(lastModel.results[0], lastModel._data.probsPct);
+  drawCRChart(lastModel, lastModel._data);
+}
 /* ---- MOTYW ---- */
 function applyTheme(t){
   document.documentElement.setAttribute('data-theme',t);
   $('themeLight').setAttribute('aria-pressed', t==='light');
   $('themeDark').setAttribute('aria-pressed', t==='dark');
-  if(lastModel && lastModel._data) drawChart(lastModel.results[0], lastModel._data.probsPct);
+  redrawCharts();
 }
 function initTheme(){
   let t=null;
@@ -870,7 +961,7 @@ function init(){
 
   renderCrEditors();
   updateHistoryHint();
-  window.addEventListener('resize',()=>{ if(lastModel&&lastModel._data) drawChart(lastModel.results[0],lastModel._data.probsPct); });
+  let rT; window.addEventListener('resize',()=>{ clearTimeout(rT); rT=setTimeout(redrawCharts,120); });
 
   // pierwsze otwarcie: gotowe wyniki dla przykładu
   recalc();
