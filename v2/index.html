@@ -1,0 +1,2500 @@
+<!doctype html>
+<html lang="pl" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prognoza dostaw — Monte Carlo (wersja 2)</title>
+<style>
+  :root{
+    --bg:#f1f5f9; --surface:#ffffff; --surface-2:#f8fafc; --text:#0f172a; --muted:#5b6b82;
+    --border:#e2e8f0; --border-strong:#cbd5e1; --accent:#2563eb; --accent-soft:#dbeafe;
+    --cr1:#7c3aed; --cr1-soft:#ede9fe; --cr2:#db2777; --cr2-soft:#fce7f3;
+    --ok:#047857; --warn:#b45309; --warn-soft:#fef3c7; --err:#dc2626; --err-soft:#fee2e2;
+    --grid:#e5e7eb; --shadow:0 1px 2px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.06);
+    --radius:14px;
+    --zone-base-bg:#eaf1fe; --zone-base-br:#c7dafc;
+    --zone-cr-bg:#f6eefd; --zone-cr-br:#e6d4f7;
+    /* poziomy pewności: jedna barwa, im pewniej tym mocniej */
+    --prob-lo:#93c5fd; --prob-mid:#3b82f6; --prob-hi:#1e3a8a;
+    /* status (RAG): zielony / bursztynowy / czerwony — tylko dla statusu */
+    --st-ok:#16a34a; --st-warn:#d97706; --st-bad:#dc2626;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b1220; --surface:#111827; --surface-2:#0f1626; --text:#e8edf5; --muted:#9fb0c6;
+    --border:#1f2a3b; --border-strong:#334155; --accent:#60a5fa; --accent-soft:#1e293b;
+    --cr1:#a78bfa; --cr1-soft:#241a3d; --cr2:#f472b6; --cr2-soft:#3a1626;
+    --ok:#34d399; --warn:#fbbf24; --warn-soft:#3a2d08; --err:#f87171; --err-soft:#3a1414;
+    --grid:#1f2a3b; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    --zone-base-bg:#0e1a2e; --zone-base-br:#1e3350;
+    --zone-cr-bg:#1b1430; --zone-cr-br:#352350;
+    --prob-lo:#2563eb; --prob-mid:#60a5fa; --prob-hi:#bfdbfe;
+    --st-ok:#22c55e; --st-warn:#fbbf24; --st-bad:#f87171;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent)}
+  h1,h2,h3{line-height:1.25;margin:0}
+  header.app{
+    position:sticky;top:0;z-index:20;background:var(--surface);
+    border-bottom:1px solid var(--border);box-shadow:var(--shadow);
+  }
+  .header-inner{max-width:1280px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .brand{display:flex;flex-direction:column;gap:2px}
+  .brand h1{font-size:1.15rem;font-weight:700;letter-spacing:-.01em}
+  .brand span{font-size:.82rem;color:var(--muted)}
+  .header-spacer{flex:1}
+  .wrap{max-width:1280px;margin:0 auto;padding:20px;display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start}
+  @media (max-width:980px){.wrap{grid-template-columns:1fr}}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .panel-pad{padding:18px}
+  aside.params{position:sticky;top:78px}
+  @media (max-width:980px){aside.params{position:static}}
+  .section{margin-bottom:20px}
+  .section > h2{font-size:1.08rem;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+  .section .lead{color:var(--muted);font-size:.92rem;margin:0 0 14px}
+  .field{margin-bottom:14px}
+  .field > label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px}
+  .hint{color:var(--muted);font-size:.82rem;margin-top:5px}
+  .note{font-size:.82rem;margin-top:6px;padding:8px 10px;border-radius:10px;background:var(--warn-soft);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent)}
+  input[type=text],input[type=number],input[type=date],input[type=password],select{
+    width:100%;padding:9px 11px;border:1px solid var(--border-strong);border-radius:10px;
+    background:var(--surface-2);color:var(--text);font:inherit;
+  }
+  input:focus-visible,select:focus-visible,button:focus-visible,.seg label:focus-within,[tabindex]:focus-visible{
+    outline:3px solid var(--accent);outline-offset:2px
+  }
+  .inline-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .err-msg{color:var(--err);font-size:.82rem;margin-top:5px;font-weight:600}
+  .field.invalid input,.field.invalid select{border-color:var(--err);background:var(--err-soft)}
+  /* segmented */
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:12px;padding:3px;gap:3px;width:100%}
+  .seg label{flex:1;position:relative;display:flex;align-items:center;justify-content:center;gap:6px;
+    padding:8px 10px;border-radius:9px;cursor:pointer;font-weight:600;font-size:.9rem;color:var(--muted);user-select:none}
+  .seg input{position:absolute;opacity:0;width:1px;height:1px}
+  .seg input:checked + span{color:#fff}
+  .seg label:has(input:checked){background:var(--accent);color:#fff;box-shadow:var(--shadow)}
+  .seg label span{position:relative;z-index:1}
+  /* buttons */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;border-radius:11px;
+    font:inherit;font-weight:650;cursor:pointer;border:1px solid transparent}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{filter:brightness(1.07)}
+  .btn-ghost{background:var(--surface-2);color:var(--text);border-color:var(--border-strong)}
+  .btn-ghost:hover{background:var(--border)}
+  .btn-sm{padding:6px 11px;font-size:.84rem;border-radius:9px}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .theme-toggle{display:inline-flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border-strong);
+    border-radius:999px;padding:4px;cursor:pointer}
+  .theme-toggle button{border:none;background:transparent;color:var(--muted);padding:6px 12px;border-radius:999px;cursor:pointer;font:inherit;font-weight:600;font-size:.85rem}
+  .theme-toggle button[aria-pressed=true]{background:var(--accent);color:#fff}
+  /* cards */
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media (max-width:560px){.cards{grid-template-columns:1fr}}
+  .card{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--surface-2)}
+  .card .plabel{font-size:.78rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--accent)}
+  .card .big{font-size:1.5rem;font-weight:750;margin:6px 0 2px;letter-spacing:-.01em}
+  .card .sub{font-size:.85rem;color:var(--muted)}
+  .card .interp{font-size:.8rem;color:var(--muted);margin-top:9px;padding-top:9px;border-top:1px dashed var(--border-strong)}
+  /* tables */
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px}
+  table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:520px}
+  caption{text-align:left;padding:10px 12px;font-weight:650;background:var(--surface-2);border-bottom:1px solid var(--border)}
+  th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--border)}
+  th:first-child,td:first-child{text-align:left}
+  thead th{background:var(--surface-2);font-size:.8rem;color:var(--muted);font-weight:650;position:sticky;top:0}
+  tbody tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.78rem;font-weight:700}
+  .pill-base{background:var(--accent-soft);color:var(--accent)}
+  .pill-cr1{background:var(--cr1-soft);color:var(--cr1)}
+  .pill-cr2{background:var(--cr2-soft);color:var(--cr2)}
+  .delta-pos{color:var(--err);font-weight:650}
+  .delta-neg{color:var(--ok);font-weight:650}
+  .delta-zero{color:var(--muted)}
+  /* banners */
+  .banner{display:none;align-items:center;gap:10px;padding:11px 14px;border-radius:11px;margin-bottom:14px;font-size:.9rem;font-weight:600}
+  .banner.show{display:flex}
+  .banner-stale{background:var(--warn-soft);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent)}
+  .banner-info{background:var(--accent-soft);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent)}
+  .banner-err{background:var(--err-soft);color:var(--err);border:1px solid color-mix(in srgb,var(--err) 35%,transparent)}
+  .meta{font-size:.84rem;color:var(--muted);margin:2px 0 12px}
+  /* CR scenario editor */
+  .cr-scn{border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--surface-2)}
+  .cr-scn.cr1{border-left:4px solid var(--cr1)}
+  .cr-scn.cr2{border-left:4px solid var(--cr2)}
+  .cr-scn .row{display:grid;grid-template-columns:1.1fr 1fr auto;gap:8px;align-items:end}
+  .cr-scn h4{margin:0 0 8px;font-size:.92rem;display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .cr-calc{font-size:.83rem;color:var(--muted);margin-top:8px}
+  .cr-calc b{color:var(--text)}
+  canvas{display:block;width:100%;height:auto;border-radius:12px}
+  .chart-card{padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-top:14px}
+  .chart-title{font-size:.95rem;margin-bottom:4px}
+  /* strefy: podstawa vs CR */
+  .zone{border-radius:16px;padding:18px;margin-bottom:22px;border:1px solid var(--border);box-shadow:var(--shadow);position:relative}
+  .zone-base{background:var(--zone-base-bg);border-color:var(--zone-base-br)}
+  .zone-cr{background:var(--zone-cr-bg);border-color:var(--zone-cr-br)}
+  .zone-head{display:flex;gap:14px;align-items:flex-start;margin-bottom:16px;padding-bottom:14px;border-bottom:1px dashed var(--border-strong)}
+  .zone-badge{flex:none;font-size:.72rem;font-weight:800;letter-spacing:.05em;padding:6px 10px;border-radius:9px;background:var(--accent);color:#fff;white-space:nowrap;margin-top:2px}
+  .zone-badge.badge-cr{background:var(--cr1)}
+  .zone-title{font-size:1.12rem;font-weight:750}
+  .zone-sub{margin:3px 0 0;color:var(--muted);font-size:.9rem}
+  .zone .section{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+  .sec-h{font-size:1.02rem;font-weight:700;margin-bottom:4px}
+  .zone-cr .sec-h{color:var(--cr1)}
+  .sidebar-group{margin-top:16px;padding:14px;border-radius:13px;background:var(--cr1-soft);border:1px solid color-mix(in srgb,var(--cr1) 28%,transparent)}
+  .sidebar-group-head{font-weight:700;font-size:.95rem;margin-bottom:6px;display:flex;align-items:center;color:var(--cr1)}
+  .sidebar-group .cr-scn{background:var(--surface);margin-bottom:10px}
+  .sidebar-group .cr-scn .row{grid-template-columns:1fr 1fr}
+  .sidebar-group .cr-scn .row > div:last-child{display:none}
+  details.help{border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow)}
+  details.help summary{cursor:pointer;padding:14px 18px;font-weight:650;list-style:none}
+  details.help summary::-webkit-details-marker{display:none}
+  details.help summary::before{content:"▸";display:inline-block;margin-right:8px;transition:transform .15s}
+  details.help[open] summary::before{transform:rotate(90deg)}
+  details.help .help-body{padding:0 18px 16px;color:var(--muted);font-size:.9rem}
+  details.help .help-body p{margin:0 0 10px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+  .divider{height:1px;background:var(--border);margin:16px 0}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin-top:10px}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  footer.app{max-width:1280px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);font-size:.8rem}
+  [hidden]{display:none!important}
+  /* zakładki */
+  .tabs{display:inline-flex;gap:4px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:12px;padding:4px}
+  .tab{border:none;background:transparent;color:var(--muted);padding:8px 14px;border-radius:9px;font:inherit;font-weight:650;font-size:.9rem;cursor:pointer}
+  .tab:hover{color:var(--text)}
+  .tab[aria-selected="true"]{background:var(--accent);color:#fff;box-shadow:var(--shadow)}
+  .tab:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+  /* zakładka epików */
+  .cards-4{grid-template-columns:repeat(4,1fr)}
+  @media (max-width:1100px){.cards-4{grid-template-columns:repeat(2,1fr)}}
+  @media (max-width:560px){.cards-4{grid-template-columns:1fr}}
+  .impact{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+  @media (max-width:760px){.impact{grid-template-columns:1fr}}
+  .impact .card{padding:11px 14px}
+  .impact .card .big{font-size:1.15rem}
+  .inline-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .mini{display:flex;flex-direction:column;gap:4px;font-size:.78rem;font-weight:650;color:var(--muted)}
+  .sg-learn{background:color-mix(in srgb,var(--st-ok) 10%,var(--surface));border-color:color-mix(in srgb,var(--st-ok) 32%,transparent)}
+  .sg-learn .sidebar-group-head{color:var(--st-ok)}
+  .sg-month{background:color-mix(in srgb,var(--accent) 8%,var(--surface));border-color:color-mix(in srgb,var(--accent) 28%,transparent)}
+  .sg-month .sidebar-group-head{color:var(--accent)}
+  .sidebar-group.invalid,details.adv.invalid{outline:2px solid var(--err);outline-offset:2px}
+  .month-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .month-grid label{display:flex;flex-direction:column;font-size:.74rem;font-weight:650;color:var(--muted);gap:3px}
+  .month-grid input{padding:6px 7px;font-size:.86rem}
+  .month-grid label.in-range{color:var(--accent)}
+  .month-grid label.in-range input{border-color:var(--accent)}
+  .month-grid label.boost input{background:color-mix(in srgb,var(--st-ok) 16%,var(--surface-2))}
+  .month-grid label.dip input{background:color-mix(in srgb,var(--st-warn) 18%,var(--surface-2))}
+  details.adv{margin-top:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)}
+  details.adv summary{cursor:pointer;padding:10px 12px;font-weight:650;font-size:.9rem}
+  details.adv .adv-body{padding:0 12px 12px}
+  table.lvl-table{min-width:0;font-size:.84rem}
+  .lvl-table td,.lvl-table th{padding:5px 4px;text-align:left}
+  .lvl-table input{padding:5px 6px;font-size:.84rem}
+  #tab-epics .wrap{max-width:1480px}
+  table.etable{min-width:820px}
+  .etable .eff{font-size:.76rem;margin-top:4px;line-height:1.3}
+  .etable .cell-sub{font-size:.74rem;color:var(--muted)}
+  .etable th,.etable td{padding:7px 8px;text-align:left;vertical-align:middle}
+  .etable input,.etable select{padding:6px 8px;font-size:.88rem;border-radius:8px}
+  .wrap > *{min-width:0}
+  .inline-2 > *,.inline-3 > *,.month-grid > *{min-width:0}
+  input,select{min-width:0;max-width:100%}
+  @media (max-width:560px){.wrap{padding:16px}.header-inner{padding:12px 16px}}
+  .etable input[data-f=name]{width:112px}
+  .etable select{width:162px}
+  .etable th,.etable td{padding-left:6px;padding-right:6px}
+  .etable input[type=number]{width:60px}
+  .etable td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .etable td.invalid input{border-color:var(--err);background:var(--err-soft)}
+  .etable .acts{white-space:nowrap}
+  .etable .acts button{border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text);border-radius:7px;width:28px;height:28px;cursor:pointer;font:inherit;line-height:1;margin-right:3px}
+  .etable .acts button:disabled{opacity:.35;cursor:default}
+  .eff-up{color:var(--st-ok);font-weight:650}
+  .eff-same{color:var(--muted)}
+  .st{display:inline-flex;align-items:center;gap:6px;font-weight:700;white-space:nowrap}
+  .st i{font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;color:#fff;font-size:.78rem;flex:none}
+  .st-ok{color:var(--st-ok)} .st-ok i{background:var(--st-ok)}
+  .st-warn{color:var(--st-warn)} .st-warn i{background:var(--st-warn)}
+  .st-miss{color:var(--st-bad)} .st-miss i{background:var(--st-bad)}
+  tr.cutline td{padding:4px 8px;text-align:center;font-size:.76rem;font-weight:800;letter-spacing:.04em;color:var(--err);background:var(--err-soft);border-top:2px dashed var(--err);border-bottom:2px dashed var(--err)}
+  .legend-st{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin-top:12px}
+  .legend-st .st{font-weight:600}
+  .zone.stale{opacity:.55}
+  /* ===== wersja 2 ===== */
+  .ver{font-size:.68rem;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--text);color:var(--surface);vertical-align:3px;margin-left:6px;letter-spacing:.03em}
+  /* kolory kart przez klasy (podążają za motywem, w przeciwieństwie do stylów wpisanych w HTML) */
+  .card.pl0{border-top:3px solid var(--prob-lo)} .card.pl1{border-top:3px solid var(--prob-mid)} .card.pl2{border-top:3px solid var(--prob-hi)}
+  .card.k-ok{border-top:3px solid var(--st-ok)} .card.k-ok .plabel{color:var(--st-ok)}
+  .card.k-warn{border-top:3px solid var(--st-warn)} .card.k-warn .plabel{color:var(--st-warn)}
+  .card.k-bad{border-top:3px solid var(--st-bad)} .card.k-bad .plabel{color:var(--st-bad)}
+  .card.k-accent{border-top:3px solid var(--accent)}
+  .card.k-muted{border-top:3px solid var(--border-strong)} .card.k-muted .plabel{color:var(--muted)}
+  .cmp-link{font-size:.78rem;font-weight:650}
+  /* odpowiedź w jednym zdaniu (status RAG) */
+  .headline{border:1px solid var(--border);border-left:6px solid var(--hl,var(--accent));border-radius:14px;background:var(--surface);padding:14px 16px;margin-bottom:20px;box-shadow:var(--shadow)}
+  .headline:empty{display:none}
+  .headline.ok{--hl:var(--st-ok)} .headline.warn{--hl:var(--st-warn)} .headline.bad{--hl:var(--st-bad)}
+  .hl-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .rag{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:.8rem;padding:3px 10px;border-radius:999px;color:#fff;background:var(--hl)}
+  :root[data-theme="dark"] .rag{color:#0b1220}
+  .hl-date{font-size:.78rem;color:var(--muted);margin-left:auto}
+  .hl-main{font-size:1.08rem;font-weight:650;margin:2px 0 4px;line-height:1.45}
+  .hl-sub{margin:3px 0;color:var(--muted);font-size:.9rem;line-height:1.45}
+  .hl-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  details.assume{margin-top:12px;font-size:.86rem}
+  details.assume summary{cursor:pointer;font-weight:650;color:var(--accent)}
+  details.assume ul{margin:8px 0 0;padding-left:18px;color:var(--muted)}
+  details.assume li{margin:3px 0}
+  .cards-note{font-size:.8rem;color:var(--muted);margin:8px 2px 0}
+  details.more{margin-top:14px}
+  details.more > summary{cursor:pointer;font-weight:650;font-size:.9rem;color:var(--accent)}
+  /* jakość danych historycznych */
+  .dq{margin-top:10px;border:1px solid var(--border);border-left:4px solid var(--dq,var(--border-strong));border-radius:10px;padding:8px 10px;font-size:.8rem;background:var(--surface-2);line-height:1.45}
+  .dq:empty{display:none}
+  .dq.ok{--dq:var(--st-ok)} .dq.warn{--dq:var(--st-warn)} .dq.bad{--dq:var(--st-bad)}
+  .dq .dq-t{font-weight:700;color:var(--text)}
+  .dq ul{margin:4px 0 0;padding-left:16px;color:var(--muted)}
+  .dq li{margin:2px 0}
+  /* wydruk / PDF: tylko wyniki aktywnej zakładki, jasne kolory */
+  @media print{
+    @page{margin:12mm}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{background:#fff}
+    header.app{position:static;box-shadow:none;border:0}
+    header.app .tabs,header.app .theme-toggle,#scOpen,.cmp-link,aside.params,.hl-actions,#staleBanner,details.help,footer.app,.sc-toast,dialog,.etable .acts,#eAdd,details.more > summary{display:none!important}
+    .wrap{display:block;max-width:none;padding:0}
+    .zone,.section,.chart-card,.card,.headline{box-shadow:none!important}
+    .headline,.cards,.chart-card,.impact,tr{break-inside:avoid}
+  }
+  /* wspólne scenariusze (Supabase) */
+  .header-inner{max-width:1480px}
+  .sc-open{white-space:nowrap}
+  .sc-open .sc-chip{font-size:.76rem;font-weight:650;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis}
+  dialog.sc-dialog{width:min(660px,calc(100vw - 32px));max-height:calc(100vh - 48px);padding:0;border:1px solid var(--border-strong);border-radius:16px;background:var(--surface);color:var(--text);box-shadow:0 24px 64px rgba(0,0,0,.35)}
+  dialog.sc-dialog::backdrop{background:rgba(15,23,42,.55)}
+  .sc-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:1}
+  .sc-head h2{font-size:1.05rem}
+  .sc-kind{font-size:.76rem;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+  .sc-x{margin-left:auto;border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text);border-radius:9px;width:32px;height:32px;cursor:pointer;font:inherit;flex:none}
+  .sc-body{padding:16px 18px 20px}
+  .sc-body p{margin:0 0 8px}
+  .sc-row{display:flex;gap:8px;margin-top:8px}
+  .sc-row input{flex:1}
+  .sc-user{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.86rem;color:var(--muted);margin-bottom:10px;flex-wrap:wrap}
+  .sc-h{font-size:.92rem;margin:16px 0 8px}
+  .sc-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .sc-item{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:var(--surface-2);display:flex;gap:10px;align-items:flex-start}
+  .sc-item.is-loaded{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+  .sc-meta{flex:1;min-width:0}
+  .sc-name{font-weight:700;overflow-wrap:anywhere}
+  .sc-desc{font-size:.84rem;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+  .sc-by{font-size:.76rem;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
+  .sc-actions{display:flex;gap:6px;flex:none}
+  .sc-tag{display:inline-block;font-size:.7rem;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:1px;background:var(--accent-soft);color:var(--accent)}
+  .sc-tag.dirty{background:var(--warn-soft);color:var(--warn)}
+  .sc-empty{font-size:.86rem;color:var(--muted);padding:6px 0}
+  #scSaveForm label{display:block;font-weight:600;font-size:.86rem;margin-bottom:10px}
+  #scSaveForm input,#scSaveForm textarea{display:block;width:100%;margin-top:5px;padding:9px 11px;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface-2);color:var(--text);font:inherit;resize:vertical}
+  .sc-setup ol{margin:8px 0 0;padding-left:20px;font-size:.88rem;color:var(--muted)}
+  .sc-setup li{margin-bottom:4px}
+  .banner .btn{margin-left:auto}
+  .sc-toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,20px);opacity:0;pointer-events:none;background:var(--text);color:var(--surface);padding:10px 16px;border-radius:12px;font-size:.88rem;font-weight:600;box-shadow:var(--shadow);transition:opacity .2s,transform .2s;z-index:60;max-width:calc(100vw - 32px)}
+  .sc-toast.show{opacity:1;transform:translate(-50%,0)}
+  @media (prefers-reduced-motion:reduce){.sc-toast{transition:none}}
+</style>
+</head>
+<body>
+<header class="app">
+  <div class="header-inner">
+    <div class="brand">
+      <h1>Prognoza dostaw — Monte Carlo <span class="ver" title="Wersja 2 do porównania">WERSJA 2</span> <a class="cmp-link" href="../index.html">porównaj z wersją 1 ↗</a></h1>
+      <span>Probabilistyczne prognozowanie terminów na podstawie historycznej przepustowości</span>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Widoki prognozy">
+      <button type="button" class="tab" role="tab" id="tabbtn-backlog" data-tab="backlog" aria-controls="tab-backlog" aria-selected="true">Prognoza backlogu</button>
+      <button type="button" class="tab" role="tab" id="tabbtn-epics" data-tab="epics" aria-controls="tab-epics" aria-selected="false" tabindex="-1">Prognoza epików</button>
+    </nav>
+    <div class="header-spacer"></div>
+    <button type="button" class="btn btn-ghost btn-sm sc-open" id="scOpen" aria-haspopup="dialog">☁ Scenariusze <span class="sc-chip" id="scChip" hidden></span></button>
+    <div class="theme-toggle" role="group" aria-label="Motyw kolorystyczny">
+      <button type="button" id="themeLight" aria-pressed="false">☀︎ Jasny</button>
+      <button type="button" id="themeDark" aria-pressed="false">☾ Ciemny</button>
+    </div>
+  </div>
+</header>
+
+<div class="tabpanel" id="tab-backlog" role="tabpanel" aria-labelledby="tabbtn-backlog">
+<div class="wrap">
+  <!-- ======================= PANEL PARAMETRÓW ======================= -->
+  <aside class="params">
+    <form id="form" class="panel panel-pad" novalidate>
+      <h2 style="font-size:1.05rem;margin-bottom:14px">Parametry prognozy</h2>
+
+      <div class="field" id="f-backlog">
+        <label for="backlog">Liczba historyjek w backlogu</label>
+        <input type="number" id="backlog" min="0" step="1" value="62" inputmode="numeric">
+        <div class="hint">Liczymy sztuki: 1 element backlogu = 1 historyjka (bez story pointów).</div>
+        <div class="err-msg" hidden></div>
+      </div>
+
+      <div class="field" id="f-start">
+        <label for="startDate">Data rozpoczęcia prac</label>
+        <input type="date" id="startDate" value="2027-01-01">
+        <div class="err-msg" hidden></div>
+      </div>
+
+      <div class="field" id="f-sprint">
+        <label id="sprintLabel">Długość sprintu</label>
+        <div class="seg" role="radiogroup" aria-labelledby="sprintLabel">
+          <label><input type="radio" name="sprintLen" value="7"><span>1 tydzień</span></label>
+          <label><input type="radio" name="sprintLen" value="14" checked><span>2 tygodnie</span></label>
+        </div>
+      </div>
+
+      <div class="field" id="f-history">
+        <label for="history">Historyczna przepustowość sprintów</label>
+        <input type="text" id="history" value="5, 4, 4, 5, 6, 4, 2, 3, 2, 5, 6" spellcheck="false" autocomplete="off">
+        <div class="hint" id="historyHint"></div>
+        <div class="note" id="historyNote" hidden></div>
+        <div class="err-msg" hidden></div>
+      </div>
+
+      <div class="field" id="f-lookback">
+        <label for="lookback">Uwzględnij ostatnie N sprintów</label>
+        <input type="number" id="lookback" min="1" max="20" step="1" placeholder="wszystkie" inputmode="numeric">
+        <div class="hint">Puste = cała historia. Ostatnia liczba na liście to najnowszy sprint. Zalecane 6–8 ostatnich, jeśli zespół lub sposób pracy się zmienił.</div>
+        <div class="err-msg" hidden></div>
+        <div class="dq" id="dqBacklog" aria-live="polite"></div>
+      </div>
+
+      <div class="field" id="f-probs">
+        <label>Poziomy prawdopodobieństwa (%)</label>
+        <div class="inline-3">
+          <input type="number" id="p1" min="1" max="99" step="1" value="50" aria-label="Poziom prawdopodobieństwa 1">
+          <input type="number" id="p2" min="1" max="99" step="1" value="85" aria-label="Poziom prawdopodobieństwa 2">
+          <input type="number" id="p3" min="1" max="99" step="1" value="95" aria-label="Poziom prawdopodobieństwa 3">
+        </div>
+        <div class="hint">Wartości od 1% do 99%. Wyniki prezentowane są rosnąco.</div>
+        <div class="err-msg" hidden></div>
+      </div>
+
+      <div class="field" id="f-deadline">
+        <label for="deadline">Data graniczna dostawy</label>
+        <input type="date" id="deadline" value="2027-03-31">
+        <div class="hint">Dotyczy pytania „Ile dostarczymy do wybranej daty?”.</div>
+        <div class="err-msg" hidden></div>
+      </div>
+
+      <div class="sidebar-group" id="f-cr">
+        <div class="sidebar-group-head">
+          <span class="pill pill-cr1" style="margin-right:6px">CR</span> Zmiana zakresu
+        </div>
+        <p class="hint" style="margin:0 0 10px">Maksymalnie dwa scenariusze, każdy liczony względem pierwotnego backlogu.</p>
+        <div id="crEditors"></div>
+        <div class="btn-row" id="crAddRow" style="margin-bottom:6px">
+          <button type="button" class="btn btn-ghost btn-sm" id="crAdd">+ Dodaj drugi scenariusz</button>
+        </div>
+        <div class="banner banner-err" id="crErr" role="alert"></div>
+      </div>
+
+      <div class="btn-row" style="margin-top:16px">
+        <button type="submit" class="btn btn-primary" id="recalc">Przelicz prognozę</button>
+        <button type="button" class="btn btn-ghost" id="reset">Przywróć dane przykładowe</button>
+      </div>
+      <p class="hint" style="margin-top:12px">20&nbsp;000 symulacji • generator ze stałym ziarnem (wyniki powtarzalne)</p>
+    </form>
+  </aside>
+
+  <!-- ======================= WYNIKI ======================= -->
+  <main>
+    <div class="banner banner-stale" id="staleBanner" role="status" aria-live="polite">
+      ⟳ Parametry się zmieniły. Kliknij „Przelicz prognozę”, aby zaktualizować wyniki.
+    </div>
+    <div class="banner banner-err" id="globalErr" role="alert" aria-live="assertive"></div>
+
+    <!-- ============ STREFA PODSTAWOWA ============ -->
+    <div class="zone zone-base">
+      <div class="zone-head">
+        <span class="zone-badge">PODSTAWA</span>
+        <div>
+          <h2 class="zone-title">Prognoza podstawowa</h2>
+          <p class="zone-sub">Odpowiedzi dla <b>pierwotnego backlogu</b> (bez zmian zakresu).</p>
+        </div>
+      </div>
+
+      <!-- ODPOWIEDŹ W JEDNYM ZDANIU + ZAŁOŻENIA -->
+      <section class="headline" id="bHeadline" aria-live="polite"></section>
+
+      <!-- SEKCJA 2 -->
+      <section class="section" id="sec-completion">
+        <h3 class="sec-h">Kiedy ukończymy cały backlog?</h3>
+        <p class="lead">Daty ukończenia wszystkich historyjek backlogu przy trzech wybranych poziomach pewności.</p>
+        <div class="cards" id="completionCards"></div>
+        <p class="cards-note">Data przy danym poziomie pewności to koniec sprintu, do którego cały backlog został ukończony w co najmniej tylu procentach symulacji.</p>
+        <div class="banner banner-info" id="completionMsg" role="status"></div>
+        <details class="more" id="histMore">
+          <summary>Szczegóły: rozkład terminu ukończenia (histogram)</summary>
+          <div class="chart-card" style="margin-top:10px">
+            <p class="hint" style="margin-top:0">Oś X: data zakończenia sprintu · Oś Y: odsetek symulacji, w których backlog kończy się dokładnie w tym sprincie. Pionowe linie to wybrane progi pewności.</p>
+            <canvas id="histChart" width="760" height="320" role="img" aria-label="Rozkład terminu ukończenia całości backlogu"></canvas>
+            <div class="legend" id="histLegend"></div>
+          </div>
+        </details>
+        <div class="chart-card">
+          <h4 class="chart-title">Prawdopodobieństwo ukończenia w czasie (skumulowane)</h4>
+          <p class="hint" style="margin-top:0">Oś X: daty zakończenia sprintów · Oś Y: odsetek symulacji, które do danej daty ukończyły cały backlog.</p>
+          <canvas id="chart" width="760" height="340" role="img" aria-label="Wykres skumulowanego prawdopodobieństwa ukończenia backlogu w czasie"></canvas>
+          <div class="legend" id="chartLegend"></div>
+        </div>
+      </section>
+
+      <!-- SEKCJA 3 -->
+      <section class="section" id="sec-quantity" style="margin-bottom:0">
+        <h3 class="sec-h">Ile dostarczymy do wybranej daty?</h3>
+        <div class="meta" id="deadlineMeta"></div>
+        <div class="cards" id="quantityCards"></div>
+        <p class="cards-note">Liczba przy danym poziomie pewności: w co najmniej tylu procentach symulacji do daty granicznej ukończono co najmniej tyle historyjek.</p>
+        <div class="banner banner-info" id="quantityMsg" role="status"></div>
+        <div class="chart-card">
+          <h4 class="chart-title" id="qtyChartTitle">Ile historyjek dostarczymy do daty granicznej?</h4>
+          <p class="hint" style="margin-top:0">Oś X: liczba dostarczonych historyjek · Oś Y: odsetek symulacji. Pionowe linie: progi „co najmniej X historyjek przy danym prawdopodobieństwie”.</p>
+          <canvas id="qtyChart" width="760" height="320" role="img" aria-label="Rozkład liczby historyjek dostarczonych do daty granicznej"></canvas>
+          <div class="legend" id="qtyLegend"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ============ STREFA SCENARIUSZY CR ============ -->
+    <div class="zone zone-cr" id="zone-cr">
+      <div class="zone-head">
+        <span class="zone-badge badge-cr">SCENARIUSZE CR</span>
+        <div>
+          <h2 class="zone-title">Scenariusze alternatywne (po uwzględnieniu CR)</h2>
+          <p class="zone-sub">Te same pytania, ale <b>ze zmienionym zakresem</b>. Krzywa bazowa jest widoczna w tle do porównania.</p>
+        </div>
+      </div>
+
+      <div class="banner banner-info" id="crNoneMsg" role="status"></div>
+
+      <!-- CR: wykres skumulowany (baza w tle + CR) -->
+      <section class="section" id="sec-cr-chart">
+        <h3 class="sec-h">Kiedy ukończymy całość? — porównanie ze scenariuszami CR</h3>
+        <p class="lead">Skumulowane prawdopodobieństwo ukończenia backlogu. Linia bazowa (pierwotny zakres) pokazana jest w tle, krzywe CR — wyraźnym kolorem.</p>
+        <div class="chart-card">
+          <canvas id="crChart" width="760" height="360" role="img" aria-label="Porównanie skumulowanego prawdopodobieństwa ukończenia backlogu: baza i scenariusze CR"></canvas>
+          <div class="legend" id="crChartLegend"></div>
+        </div>
+      </section>
+
+      <!-- CR: tabela liczby historyjek -->
+      <section class="section" id="sec-cr-table" style="margin-bottom:0">
+        <h3 class="sec-h">Ile dostarczymy do daty granicznej? — porównanie</h3>
+        <div class="tbl-wrap"><table id="crTable2"></table></div>
+        <p class="hint" style="margin-top:14px">
+          Model stosuje <b>to samo tempo dostarczania</b> we wszystkich scenariuszach i traktuje zmieniony zakres jako dostępny od początku prac.
+          Przy wzroście backlogu liczba dostarczonych historyjek do terminu może pozostać taka sama, udział ukończonego zakresu może spaść,
+          a data ukończenia całości może się przesunąć.
+        </p>
+      </section>
+    </div>
+
+    <!-- SEKCJA POMOCY -->
+    <details class="help" id="help">
+      <summary>Jak czytać prognozę?</summary>
+      <div class="help-body">
+        <p><b>Skąd biorą się liczby?</b> Dla każdego przyszłego sprintu losujemy (ze zwracaniem) jedną wartość z podanej historii przepustowości — każdy historyczny sprint ma równą szansę, a powtórzenia zachowują swoją częstość. Powtarzamy to 20&nbsp;000 razy, budując rozkład możliwych terminów.</p>
+        <p><b>Założenie.</b> Prognoza zakłada, że przyszłe tempo dostarczania będzie podobne do dotychczasowego. Im bardziej stabilna i reprezentatywna historia, tym pewniejsza prognoza.</p>
+        <p><b>Dwa różne pytania.</b> „Kiedy ukończymy całość?” szuka najwcześniejszej daty, do której cały backlog został ukończony w co najmniej p% symulacji. „Ile ukończymy do wybranej daty?” pyta o największą liczbę historyjek osiągniętą w co najmniej p% symulacji w ustalonym oknie czasu. Wyższy wymagany poziom prawdopodobieństwa oznacza ostrożniejszą (późniejszą datę / mniejszą liczbę historyjek) prognozę.</p>
+        <p><b>Poziom prawdopodobieństwa</b> to pewność prognozy: 85% oznacza, że w 85% symulacji cel został osiągnięty do podanej wartości włącznie.</p>
+      </div>
+    </details>
+  </main>
+</div>
+</div>
+
+<!-- ======================= ZAKŁADKA: PROGNOZA EPIKÓW ======================= -->
+<div class="tabpanel" id="tab-epics" role="tabpanel" aria-labelledby="tabbtn-epics" hidden>
+<div class="wrap">
+  <aside class="params">
+    <form id="eForm" class="panel panel-pad" novalidate>
+      <h2 style="font-size:1.05rem;margin-bottom:4px">Parametry prognozy epików</h2>
+      <p class="hint" style="margin:0 0 14px">Wyniki przeliczają się automatycznie po każdej zmianie.</p>
+
+      <div class="inline-2">
+        <div class="field" id="ef-start"><label for="eStart">Data rozpoczęcia</label><input type="date" id="eStart"></div>
+        <div class="field" id="ef-target"><label for="eTarget">Data docelowa</label><input type="date" id="eTarget"></div>
+      </div>
+      <div class="field" id="ef-conf">
+        <label for="eConf">Wymagana pewność (%)</label>
+        <input type="number" id="eConf" min="1" max="99" step="1">
+        <div class="hint">Na tym poziomie liczone są daty, statusy i linia odcięcia.</div>
+      </div>
+
+      <div class="field">
+        <label id="eSprintLabel">Długość sprintu</label>
+        <div class="seg" role="radiogroup" aria-labelledby="eSprintLabel">
+          <label><input type="radio" name="eSprintLen" value="7"><span>1 tydzień</span></label>
+          <label><input type="radio" name="eSprintLen" value="14"><span>2 tygodnie</span></label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label id="eTpLabel">Źródło przepustowości</label>
+        <div class="seg" role="radiogroup" aria-labelledby="eTpLabel">
+          <label><input type="radio" name="eTpMode" value="data"><span>Dane historyczne</span></label>
+          <label><input type="radio" name="eTpMode" value="estimate"><span>Szacunek</span></label>
+        </div>
+      </div>
+      <div class="field" id="ef-history">
+        <label for="eHistory">Historyczna przepustowość (historyjki na sprint)</label>
+        <input type="text" id="eHistory" spellcheck="false" autocomplete="off">
+        <div class="hint">Liczby oddzielone przecinkami, po jednej na sprint (1–30 wartości). Ostatnia liczba to najnowszy sprint.</div>
+        <label for="eLookback" class="mini" style="margin-top:10px">Uwzględnij ostatnie N sprintów (puste = wszystkie)
+          <input type="number" id="eLookback" min="1" max="30" step="1" placeholder="wszystkie" inputmode="numeric">
+        </label>
+        <div class="dq" id="dqEpics" aria-live="polite"></div>
+      </div>
+      <div class="field" id="ef-est" hidden>
+        <label>Szacunek przepustowości na sprint</label>
+        <div class="inline-3">
+          <input type="number" id="eEstMin" min="0" step="1" aria-label="Przepustowość minimalna">
+          <input type="number" id="eEstMode" min="0" step="1" aria-label="Przepustowość najbardziej prawdopodobna">
+          <input type="number" id="eEstMax" min="0" step="1" aria-label="Przepustowość maksymalna">
+        </div>
+        <div class="hint">Min · najbardziej prawdopodobna · max (rozkład trójkątny).</div>
+      </div>
+
+      <div class="field" id="ef-focus">
+        <label for="eFocus">Skupienie zespołu na tych epikach (%)</label>
+        <input type="number" id="eFocus" min="1" max="100" step="1">
+        <div class="hint">Część czasu zespołu poświęcona tej pracy. Mnoży przepustowość.</div>
+      </div>
+
+      <div class="field" id="ef-split">
+        <label>Współczynnik podziału historyjek (min / max)</label>
+        <div class="inline-2">
+          <input type="number" id="eSplitLo" min="0.1" max="5" step="0.05" aria-label="Współczynnik podziału minimum">
+          <input type="number" id="eSplitHi" min="0.1" max="5" step="0.05" aria-label="Współczynnik podziału maksimum">
+        </div>
+        <div class="hint">Historyjki często dzielą się w trakcie pracy. 1,0 oznacza brak podziału.</div>
+      </div>
+
+      <div class="sidebar-group sg-learn" id="ef-learn">
+        <div class="sidebar-group-head">Efekt uczenia się</div>
+        <div class="inline-2">
+          <label class="mini">Po ukończeniu epików<input type="number" id="eLearnK" min="0" max="20" step="1"></label>
+          <label class="mini">znajomość rośnie o (poziomy)<input type="number" id="eLearnN" min="0" max="3" step="1"></label>
+        </div>
+        <p class="hint" style="margin:8px 0 0">Kolejne epiki zespół realizuje z lepszą znajomością domeny, więc ich zakres mniej się rozrasta. 0 poziomów wyłącza efekt.</p>
+      </div>
+
+      <div class="sidebar-group sg-month" id="ef-months">
+        <div class="sidebar-group-head">Korekta przepustowości w miesiącach</div>
+        <p class="hint" style="margin:0 0 8px">Mnożnik tempa: 1,0 = jak w historii, 1,2 = o 20% szybciej, 0,8 = wolniej (np. urlopy). Miesiące w horyzoncie prognozy są podświetlone.</p>
+        <div class="month-grid" id="eMonths"></div>
+      </div>
+
+      <details class="adv" id="ef-levels">
+        <summary>Zaawansowane: poziomy znajomości epików</summary>
+        <div class="adv-body">
+          <p class="hint" style="margin:0 0 8px">Mnożnik rozrostu zakresu epiku, losowany równomiernie z przedziału min–max. To założenia, nie stałe z arkusza Troya Magennisa — dopasuj je do swojego zespołu.</p>
+          <table class="lvl-table"><thead><tr><th>Poziom</th><th>min</th><th>max</th></tr></thead><tbody id="eLevels"></tbody></table>
+        </div>
+      </details>
+
+      <div class="btn-row" style="margin-top:16px">
+        <button type="button" class="btn btn-ghost" id="eReset">Przywróć przykład</button>
+      </div>
+      <p class="hint" style="margin-top:12px">20&nbsp;000 symulacji • stałe ziarno • epiki realizowane po kolei</p>
+    </form>
+  </aside>
+
+  <main>
+    <div class="banner banner-err" id="eErr" role="alert"></div>
+    <div class="banner banner-info" id="eInfo" role="status"></div>
+
+    <div class="zone zone-base" id="eZone">
+      <div class="zone-head">
+        <span class="zone-badge">EPIKI</span>
+        <div>
+          <h2 class="zone-title">Kiedy dostarczymy kolejne epiki?</h2>
+          <p class="zone-sub" id="eZoneSub"></p>
+        </div>
+      </div>
+
+      <section class="headline" id="eHeadline" aria-live="polite"></section>
+
+      <section class="section">
+        <h3 class="sec-h">Podsumowanie</h3>
+        <div class="cards cards-4" id="eKpis"></div>
+        <h4 class="chart-title" style="margin-top:16px">Wpływ założeń na termin ukończenia wszystkich epików</h4>
+        <p class="hint" style="margin:0">Ta sama symulacja (te same losowania) bez danego założenia. Ujemna liczba dni oznacza, że założenie przyspiesza dostawę.</p>
+        <div class="impact" id="eImpact"></div>
+      </section>
+
+      <section class="section">
+        <h3 class="sec-h">Epiki — kolejność, rozmiar, znajomość i prognoza</h3>
+        <p class="lead">Edytuj wartości bezpośrednio w tabeli. Epiki realizowane są w podanej kolejności; strzałkami zmienisz kolejność.</p>
+        <div class="tbl-wrap">
+          <table class="etable" id="eTable">
+            <thead><tr>
+              <th>#</th><th>Epik</th><th>Min</th><th>Max</th><th>Znajomość epiku</th>
+              <th id="eThDate">Prognoza</th><th>Status</th><th id="eThP">Szansa do celu</th><th><span class="sr-only">Akcje</span></th>
+            </tr></thead>
+            <tbody id="eTbody"></tbody>
+          </table>
+        </div>
+        <div class="btn-row" style="margin-top:10px"><button type="button" class="btn btn-ghost btn-sm" id="eAdd">+ Dodaj epik</button></div>
+        <div class="legend-st">
+          <span class="st st-ok"><i aria-hidden="true">✓</i>W terminie lub przed nim</span>
+          <span class="st st-warn"><i aria-hidden="true">!</i>Spóźnienie o maks. 1 sprint</span>
+          <span class="st st-miss"><i aria-hidden="true">✗</i>Spóźnienie o więcej niż 1 sprint</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h3 class="sec-h">Oś czasu epików</h3>
+        <p class="lead">Pasek: zakres dat ukończenia od 50% do 95% pewności · romb: data przy wymaganej pewności · czerwona przerywana linia: data docelowa.</p>
+        <div class="chart-card"><canvas id="eTimeline" role="img" aria-label="Oś czasu ukończenia epików"></canvas></div>
+      </section>
+
+      <section class="section">
+        <h3 class="sec-h" id="eProbTitle">Szansa ukończenia każdego epiku do daty docelowej</h3>
+        <p class="lead">Odsetek symulacji, w których epik został ukończony do daty docelowej włącznie. Pionowa linia: wymagana pewność. Kolor i opis to poziom ryzyka.</p>
+        <div class="chart-card"><canvas id="eProbChart" role="img" aria-label="Szansa ukończenia każdego epiku do daty docelowej"></canvas>
+          <div class="legend-st" id="eRiskLegend">
+            <span class="st st-ok"><i aria-hidden="true">●</i>≥ 85%: ryzyko niskie — trzymaj plan</span>
+            <span class="st st-warn"><i aria-hidden="true">●</i>70–85%: umiarkowane — dodaj bufor</span>
+            <span class="st st-warn"><i aria-hidden="true">●</i>50–70%: wysokie — zmniejsz zakres lub przesuń termin</span>
+            <span class="st st-miss"><i aria-hidden="true">●</i>&lt; 50%: bardzo wysokie — przeplanuj</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h3 class="sec-h" id="eCountTitle">Ile epików dostarczymy do daty docelowej?</h3>
+        <p class="lead">Rozkład liczby ukończonych epików w 20&nbsp;000 symulacji.</p>
+        <div class="chart-card"><canvas id="eCountChart" role="img" aria-label="Rozkład liczby epików ukończonych do daty docelowej"></canvas><div class="legend" id="eCountLegend"></div></div>
+      </section>
+
+      <section class="section" style="margin-bottom:0">
+        <h3 class="sec-h">Efektywna przepustowość w kolejnych sprintach</h3>
+        <p class="lead">Średnia przepustowość × skupienie zespołu × mnożnik miesięczny (proporcjonalnie do dni sprintu przypadających na dany miesiąc).</p>
+        <div class="chart-card"><canvas id="eTpChart" role="img" aria-label="Efektywna przepustowość w kolejnych sprintach"></canvas><div class="legend" id="eTpLegend"></div></div>
+      </section>
+    </div>
+
+    <details class="help">
+      <summary>Jak działa prognoza epików?</summary>
+      <div class="help-body">
+        <p><b>Kolejność.</b> Epiki realizowane są po kolei. Epik jest ukończony w pierwszym sprincie, w którym łączna liczba dostarczonych historyjek pokryje jego zakres i zakres wszystkich epików przed nim.</p>
+        <p><b>Rozmiar epiku.</b> W każdej symulacji losujemy liczbę historyjek z przedziału min–max, mnożymy ją przez współczynnik podziału oraz przez mnożnik rozrostu zakresu wynikający ze znajomości epiku. Im słabiej zespół rozumie epik, tym szerszy i wyższy mnożnik.</p>
+        <p><b>Efekt uczenia się.</b> Po ukończeniu wskazanej liczby epików znajomość kolejnych rośnie o podaną liczbę poziomów. Zielona adnotacja „przy realizacji” pod poziomem znajomości pokazuje poziom użyty w obliczeniach.</p>
+        <p><b>Przepustowość.</b> Dla każdego sprintu losujemy (ze zwracaniem) jedną wartość z historii albo z rozkładu trójkątnego. Wynik mnożymy przez skupienie zespołu i przez mnożnik miesięczny, ważony liczbą dni sprintu w każdym miesiącu.</p>
+        <p><b>Data i status.</b> Data przy wymaganej pewności to najwcześniejszy koniec sprintu, do którego epik został ukończony w co najmniej tylu procentach symulacji. Status porównuje tę datę z datą docelową, tak jak w arkuszu Feature Cut Line Forecaster Troya Magennisa (Focused Objective).</p>
+        <p><b>Linia odcięcia.</b> Epiki nad linią mają co najmniej wymaganą szansę ukończenia do daty docelowej. Epiki pod linią są zagrożone: warto rozważyć zmianę zakresu, kolejności albo terminu.</p>
+      </div>
+    </details>
+  </main>
+</div>
+</div>
+
+<footer class="app">
+  Wszystkie obliczenia wykonują się lokalnie w przeglądarce. Brak serwera, API i połączeń sieciowych.
+</footer>
+
+<script>
+"use strict";
+(function(){
+/* =========================================================================
+   NARZĘDZIA: DATY (odporne na strefy czasowe — wszystko w UTC, dzień = doba)
+   ========================================================================= */
+const DAY = 86400000;
+function isoToUTC(iso){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); if(!m) return NaN;
+  const y=+m[1],mo=+m[2],d=+m[3]; const ms=Date.UTC(y,mo-1,d);
+  const dt=new Date(ms); if(dt.getUTCFullYear()!==y||dt.getUTCMonth()!==mo-1||dt.getUTCDate()!==d) return NaN; return ms; }
+function addDays(ms,n){ return ms + n*DAY; }
+function daysBetween(a,b){ return Math.round((b-a)/DAY); }
+function fmtDate(ms){ const dt=new Date(ms);
+  const d=String(dt.getUTCDate()).padStart(2,'0'); const mo=String(dt.getUTCMonth()+1).padStart(2,'0');
+  return d+'.'+mo+'.'+dt.getUTCFullYear(); }
+// koniec n-tego sprintu = start + (n*len - 1) dni
+function sprintEnd(startMs,n,len){ return addDays(startMs, n*len - 1); }
+// liczba sprintów kończących się w dacie granicznej lub wcześniej
+function sprintsByDeadline(startMs,deadlineMs,len){
+  const delta=daysBetween(startMs,deadlineMs); if(delta<0) return 0;
+  return Math.floor((delta+1)/len);
+}
+
+/* =========================================================================
+   PRNG: mulberry32 — stałe ziarno, odtwarzalna sekwencja per próba
+   ========================================================================= */
+const BASE_SEED = 0x9e3779b9;
+function mulberry32(a){
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* =========================================================================
+   SYMULACJA: jedna, wspólna sekwencja losowań dla bazy i scenariuszy CR
+   scenarios: [{backlog}]  (tylko backlog > 0)
+   Zwraca per scenariusz: delivered[](N), completion[](N, sentinel=CAP+1), capHit
+   ========================================================================= */
+const N_SIMS = 20000;
+const MAX_SPRINTS = 5000;
+function runSimulation(scenarioBacklogs, history, K){
+  const S = scenarioBacklogs.length;
+  const H = history.length;
+  const delivered = [], completion = [];
+  for(let j=0;j<S;j++){ delivered.push(new Int32Array(N_SIMS)); completion.push(new Int32Array(N_SIMS)); }
+  const SENT = MAX_SPRINTS + 1;
+  let capHit = false;
+  const done = new Array(S);
+
+  for(let t=0;t<N_SIMS;t++){
+    const rng = mulberry32((BASE_SEED + t) | 0);
+    let cum = 0, cumAtK = 0, sprint = 0, remaining = S;
+    for(let j=0;j<S;j++) done[j]=false;
+
+    while(remaining>0 && sprint<MAX_SPRINTS){
+      sprint++;
+      const draw = history[(rng()*H)|0];
+      cum += draw;
+      if(sprint<=K) cumAtK = cum;           // cum na koniec min(sprint,K)-tego sprintu
+      for(let j=0;j<S;j++){
+        if(!done[j] && cum>=scenarioBacklogs[j]){ done[j]=true; completion[j][t]=sprint; remaining--; }
+      }
+    }
+    if(remaining>0){ capHit=true; for(let j=0;j<S;j++) if(!done[j]) completion[j][t]=SENT; }
+    for(let j=0;j<S;j++) delivered[j][t] = Math.min(scenarioBacklogs[j], cumAtK);
+  }
+  return {delivered, completion, capHit, N:N_SIMS};
+}
+
+// Próg ilościowy: największe X z P(dostarczono >= X) >= p
+function qtyForProb(sortedAsc, p){
+  const N=sortedAsc.length; const req=Math.ceil(p*N); return sortedAsc[N-req];
+}
+// Próg czasowy: najmniejszy numer sprintu, do którego ukończono w >= p% symulacji
+function sprintForProb(sortedAsc, p){
+  const N=sortedAsc.length; const req=Math.ceil(p*N); return sortedAsc[req-1];
+}
+
+/* =========================================================================
+   OBLICZENIE WYNIKÓW DLA KOMPLETU SCENARIUSZY
+   ========================================================================= */
+function computeModel(cfg){
+  // cfg: {backlog, history, startMs, len, probs:[frac], deadlineMs, scenarios:[{id,label,backlog}]}
+  const {history, startMs, len, probs, deadlineMs, scenarios} = cfg;
+  const K = sprintsByDeadline(startMs, deadlineMs, len);
+  const lastEndMs = K>0 ? sprintEnd(startMs,K,len) : null;
+  const allZeros = history.length>0 && history.every(h=>h===0);
+
+  // które scenariusze wymagają symulacji (backlog>0 i nie allZeros)
+  const simIdx=[], simBacklogs=[];
+  scenarios.forEach((s,i)=>{ if(s.backlog>0 && !allZeros){ simIdx.push(i); simBacklogs.push(s.backlog); } });
+
+  let sim=null, capHit=false;
+  if(simBacklogs.length){ sim=runSimulation(simBacklogs, history, K); capHit=sim.capHit; }
+
+  // przygotuj posortowane kopie
+  const sortedDeliv={}, sortedComp={}, compArr={};
+  if(sim){ simIdx.forEach((sc,j)=>{
+    sortedDeliv[sc]=Int32Array.from(sim.delivered[j]).sort();
+    sortedComp[sc]=Int32Array.from(sim.completion[j]).sort();
+    compArr[sc]=sim.completion[j];
+  }); }
+
+  const results = scenarios.map((s,i)=>{
+    const r={id:s.id,label:s.label,backlog:s.backlog,completion:[],quantity:{K,lastEndMs,perProb:[]},
+             chart:null,emptyBacklog:false,allZeros:false,noCompletion:false};
+    if(s.backlog===0){
+      r.emptyBacklog=true;
+      probs.forEach(p=>{ r.completion.push({p,sprintCount:0,dateMs:startMs,noDate:false}); });
+      probs.forEach(p=>{ r.quantity.perProb.push({p,items:0,share:null}); });
+      return r;
+    }
+    if(allZeros){
+      r.allZeros=true; r.noCompletion=true;
+      probs.forEach(p=>{ r.completion.push({p,sprintCount:null,dateMs:null,noDate:true}); });
+      probs.forEach(p=>{ r.quantity.perProb.push({p,items:0,share:0}); });
+      return r;
+    }
+    const sd=sortedDeliv[i], scp=sortedComp[i];
+    probs.forEach(p=>{
+      const sp=sprintForProb(scp,p);
+      if(sp>MAX_SPRINTS){ r.completion.push({p,sprintCount:null,dateMs:null,noDate:true,capped:true}); }
+      else r.completion.push({p,sprintCount:sp,dateMs:sprintEnd(startMs,sp,len),noDate:false});
+    });
+    probs.forEach(p=>{
+      const items=qtyForProb(sd,p);
+      const share = s.backlog>0 ? items/s.backlog*100 : null;
+      r.quantity.perProb.push({p,items,share});
+    });
+    // dane wykresów: skumulowana krzywa + rozkład terminów + rozkład dostaw
+    r.chart=buildChart(compArr[i], startMs, len, r.completion);
+    r.deliveredDist=buildDeliveredDist(sortedDeliv[i], s.backlog);
+    return r;
+  });
+
+  return {K,lastEndMs,allZeros,capHit,results,probs};
+}
+
+function buildChart(compArr, startMs, len, completionThresholds){
+  const N=compArr.length;
+  let maxS=1;
+  for(let t=0;t<N;t++){ const v=compArr[t]; if(v<=MAX_SPRINTS && v>maxS) maxS=v; }
+  // ogranicz do ~99.5 percentyla dla czytelności, ale obejmij progi
+  const hist=new Int32Array(maxS+2);
+  for(let t=0;t<N;t++){ const v=compArr[t]; if(v<=maxS) hist[v]++; }
+  let cum=0; const pts=[]; let cutoff=maxS;
+  // znajdź sprint, gdzie frakcja >= 0.995
+  let acc=0;
+  for(let s=1;s<=maxS;s++){ acc+=hist[s]; if(acc/N>=0.995){ cutoff=s; break; } }
+  let maxThr=0; completionThresholds.forEach(c=>{ if(c.sprintCount&&c.sprintCount>maxThr) maxThr=c.sprintCount; });
+  cutoff=Math.max(cutoff,maxThr);
+  const counts=[];
+  for(let s=1;s<=cutoff;s++){ cum+=hist[s]; counts.push(hist[s]); pts.push({sprint:s,dateMs:sprintEnd(startMs,s,len),frac:cum/N}); }
+  return {points:pts, maxSprint:cutoff, counts:counts, total:N};
+}
+
+function buildDeliveredDist(arr, backlog){
+  const counts=new Array(backlog+1).fill(0);
+  for(let k=0;k<arr.length;k++){ const v=arr[k]; if(v>=0&&v<=backlog) counts[v]++; }
+  return {counts:counts, total:arr.length, backlog:backlog};
+}
+
+/* =========================================================================
+   WALIDACJA I ODCZYT FORMULARZA
+   ========================================================================= */
+const $=id=>document.getElementById(id);
+const DEFAULT_HISTORY_STR="5, 4, 4, 5, 6, 4, 2, 3, 2, 5, 6";
+const DEFAULT_HISTORY=[5,4,4,5,6,4,2,3,2,5,6];
+
+function setFieldError(fieldId,msg){
+  const f=$(fieldId); if(!f) return;
+  const el=f.querySelector('.err-msg');
+  if(msg){ f.classList.add('invalid'); if(el){el.textContent=msg;el.hidden=false;} }
+  else { f.classList.remove('invalid'); if(el){el.hidden=true;el.textContent='';} }
+}
+function clearErrors(){ ['f-backlog','f-start','f-history','f-lookback','f-probs','f-deadline'].forEach(id=>setFieldError(id,'')); }
+
+function parseHistory(str){
+  const raw=str.split(',').map(s=>s.trim());
+  if(raw.length===0||raw.some(s=>s==='')) return {err:'Podaj liczby oddzielone przecinkami.'};
+  if(raw.length>20) return {err:'Maksymalnie 20 wartości (po jednej na sprint).'};
+  const out=[];
+  for(const s of raw){
+    if(!/^\d+$/.test(s)) return {err:'Dozwolone są wyłącznie nieujemne liczby całkowite.'};
+    out.push(parseInt(s,10));
+  }
+  if(out.length<1||out.length>20) return {err:'Podaj od 1 do 20 wartości.'};
+  return {value:out};
+}
+
+function readInputs(){
+  clearErrors();
+  let ok=true;
+  const data={};
+  // backlog
+  const bRaw=$('backlog').value.trim();
+  if(!/^\d+$/.test(bRaw)){ setFieldError('f-backlog','Podaj nieujemną liczbę całkowitą.'); ok=false; }
+  else data.backlog=parseInt(bRaw,10);
+  // start
+  const startMs=isoToUTC($('startDate').value);
+  if(isNaN(startMs)){ setFieldError('f-start','Podaj poprawną datę.'); ok=false; } else data.startMs=startMs;
+  // sprint
+  data.len=parseInt(document.querySelector('input[name=sprintLen]:checked').value,10);
+  // history
+  const h=parseHistory($('history').value);
+  if(h.err){ setFieldError('f-history',h.err); ok=false; } else data.historyAll=h.value;
+  // okno historii: ostatnie N sprintów (puste = wszystkie)
+  const lb=$('lookback').value.trim();
+  if(lb!==''&&!/^\d+$/.test(lb)||(lb!==''&&(+lb<1||+lb>20))){ setFieldError('f-lookback','Podaj liczbę od 1 do 20 albo zostaw puste.'); ok=false; }
+  else { data.lookback=lb===''?null:+lb; if(data.historyAll) data.history=data.lookback?data.historyAll.slice(-data.lookback):data.historyAll.slice(); }
+  // probs
+  const praw=[$('p1').value,$('p2').value,$('p3').value];
+  const pvals=[];
+  let pErr=null;
+  for(const pv of praw){ const s=pv.trim(); if(!/^\d+$/.test(s)){pErr='Podaj liczby całkowite 1–99.';break;}
+    const n=parseInt(s,10); if(n<1||n>99){pErr='Dozwolone wartości: 1–99.';break;} pvals.push(n); }
+  if(pErr){ setFieldError('f-probs',pErr); ok=false; }
+  else { data.probsPct=pvals.slice().sort((a,b)=>a-b); data.probs=data.probsPct.map(p=>p/100); }
+  // deadline
+  const dMs=isoToUTC($('deadline').value);
+  if(isNaN(dMs)){ setFieldError('f-deadline','Podaj poprawną datę.'); ok=false; } else data.deadlineMs=dMs;
+
+  return ok?{ok:true,data}:{ok:false};
+}
+
+/* =========================================================================
+   SCENARIUSZE CR
+   ========================================================================= */
+let crScenarios=[
+  {id:'cr1',label:'Scenariusz CR 1',unit:'percent',value:20},
+  {id:'cr2',label:'Scenariusz CR 2',unit:'percent',value:30},
+];
+function roundHalfUpAbs(x){ const s=x<0?-1:1; return s*Math.round(Math.abs(x)); }
+
+function crChangeItems(scn, baseBacklog){
+  if(scn.unit==='percent'){ return roundHalfUpAbs(baseBacklog*scn.value/100); }
+  return Math.trunc(scn.value); // historyjki — liczba całkowita
+}
+
+function renderCrEditors(){
+  const host=$('crEditors'); host.innerHTML='';
+  crScenarios.forEach((scn,i)=>{
+    const cls=i===0?'cr1':'cr2';
+    const pill=i===0?'pill-cr1':'pill-cr2';
+    const div=document.createElement('div');
+    div.className='cr-scn '+cls;
+    div.innerHTML=
+      '<h4><span class="pill '+pill+'">'+(i===0?'CR 1':'CR 2')+'</span>'+
+        (i===1?'<button type="button" class="btn btn-ghost btn-sm" data-remove="'+i+'">Usuń</button>':'<span></span>')+'</h4>'+
+      '<div class="row">'+
+        '<div><label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:5px">Jednostka</label>'+
+          '<select data-unit="'+i+'">'+
+            '<option value="percent"'+(scn.unit==='percent'?' selected':'')+'>procent backlogu</option>'+
+            '<option value="items"'+(scn.unit==='items'?' selected':'')+'>historyjki</option>'+
+          '</select></div>'+
+        '<div><label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:5px">Zmiana zakresu</label>'+
+          '<input type="number" step="'+(scn.unit==='percent'?'1':'1')+'" data-value="'+i+'" value="'+scn.value+'"></div>'+
+        '<div></div>'+
+      '</div>'+
+      '<div class="cr-calc" data-calc="'+i+'"></div>';
+    host.appendChild(div);
+  });
+  $('crAdd').style.display = crScenarios.length>=2 ? 'none':'inline-flex';
+  // listeners
+  host.querySelectorAll('[data-unit]').forEach(sel=>sel.addEventListener('change',e=>{
+    const i=+e.target.dataset.unit; crScenarios[i].unit=e.target.value; markStale(); updateCrCalc(); }));
+  host.querySelectorAll('[data-value]').forEach(inp=>inp.addEventListener('input',e=>{
+    const i=+e.target.dataset.value; crScenarios[i].value=parseFloat(e.target.value); markStale(); updateCrCalc(); }));
+  host.querySelectorAll('[data-remove]').forEach(btn=>btn.addEventListener('click',e=>{
+    crScenarios.splice(+e.target.dataset.remove,1); renderCrEditors(); markStale(); updateCrCalc(); }));
+  updateCrCalc();
+}
+function updateCrCalc(){
+  const bRaw=$('backlog').value.trim(); const base=/^\d+$/.test(bRaw)?parseInt(bRaw,10):null;
+  crScenarios.forEach((scn,i)=>{
+    const el=document.querySelector('[data-calc="'+i+'"]'); if(!el) return;
+    if(base===null||isNaN(scn.value)){ el.textContent='—'; return; }
+    const delta=crChangeItems(scn,base); const nb=base+delta;
+    let txt='Zmiana: <b>'+(delta>=0?'+':'')+delta+'</b> hist.  →  nowy backlog: <b>'+nb+'</b> hist.';
+    if(nb<0) txt+='  <span style="color:var(--err);font-weight:700">(ujemny — scenariusz pominięty)</span>';
+    el.innerHTML=txt;
+  });
+}
+
+/* =========================================================================
+   RENDEROWANIE WYNIKÓW
+   ========================================================================= */
+let lastModel=null, lastThemeColors=null;
+
+function render(model, data){
+  lastModel=model; lastModel._data=data;
+  const base=model.results[0];
+  const probsPct=data.probsPct;
+
+  const pc=probColors();
+  // ---- SEKCJA 2: karty ukończenia ----
+  const cc=$('completionCards'); cc.innerHTML='';
+  const cmsg=$('completionMsg'); cmsg.className='banner banner-info';
+  base.completion.forEach((c,idx)=>{
+    const pct=probsPct[idx];
+    const div=document.createElement('div'); div.className='card pl'+Math.min(idx,2);
+    let big,sub;
+    if(c.noDate){ big='Brak prognozy'; sub=c.capped?'Przekroczono limit sprintów':'Brak prognozowanej daty ukończenia'; }
+    else { big=fmtDate(c.dateMs); sub=c.sprintCount+' '+sprintWord(c.sprintCount); }
+    div.innerHTML='<div class="plabel">'+pct+'% pewności</div><div class="big">'+big+'</div><div class="sub">'+sub+'</div>';
+    cc.appendChild(div);
+  });
+  if(base.emptyBacklog){ cmsg.textContent='Backlog jest pusty — całość jest ukończona w dniu rozpoczęcia prac (0 sprintów).'; cmsg.classList.add('show'); }
+  else if(base.allZeros){ cmsg.textContent='Historia składa się wyłącznie z zer — brak prognozowanej daty ukończenia. Pętla symulacji została pominięta.'; cmsg.classList.add('show'); }
+  else if(base.backlog>0 && data.history.length===1){ cmsg.textContent='Historia zawiera jedną obserwację — każdy symulowany sprint korzysta z tej samej wartości ('+data.history[0]+').'; cmsg.classList.add('show'); }
+  else cmsg.classList.remove('show');
+
+  // ---- WYKRESY STREFY PODSTAWOWEJ ----
+  drawCompletionHist(base, probsPct, data);
+  drawChart(base, probsPct);
+
+  // ---- SEKCJA 3: prognoza ilościowa ----
+  const dm=$('deadlineMeta');
+  if(model.K>0){ dm.innerHTML='W prognozie ujęto <b>'+model.K+'</b> '+sprintWord(model.K)+' • koniec ostatniego: <b>'+fmtDate(model.lastEndMs)+'</b>'; }
+  else dm.innerHTML='Data graniczna wypada <b>przed końcem pierwszego sprintu</b> — w prognozie ujęto 0 sprintów.';
+  const qc=$('quantityCards'); qc.innerHTML='';
+  const qmsg=$('quantityMsg'); qmsg.className='banner banner-info';
+  base.quantity.perProb.forEach((q,idx)=>{
+    const pct=probsPct[idx];
+    const div=document.createElement('div'); div.className='card pl'+Math.min(idx,2);
+    div.innerHTML='<div class="plabel">'+pct+'% pewności</div><div class="big">≥ '+q.items+' '+elemWord(q.items)+'</div>'+
+      '<div class="sub">'+(q.share!==null?Math.round(q.share)+'% backlogu':'backlog pusty')+'</div>';
+    qc.appendChild(div);
+  });
+  if(model.K===0){ qmsg.textContent='Termin wypada przed końcem pierwszego sprintu, dlatego prognoza wskazuje 0 historyjek — żaden sprint nie zdążył się zakończyć.'; qmsg.classList.add('show'); }
+  else if(base.emptyBacklog){ qmsg.textContent='Backlog jest pusty — nie ma historyjek do dostarczenia.'; qmsg.classList.add('show'); }
+  else if(base.allZeros){ qmsg.textContent='Historia z samymi zerami — prognozowana liczba dostarczonych historyjek wynosi 0.'; qmsg.classList.add('show'); }
+  else qmsg.classList.remove('show');
+
+  // tytuł + histogram liczby historyjek do daty granicznej
+  $('qtyChartTitle').textContent='Ile historyjek dostarczymy do '+fmtDate(data.deadlineMs)+'?';
+  drawDeliveredHist(base, probsPct, data, model);
+
+  // ---- STREFA CR ----
+  renderCrSection(model, data);
+
+  // ---- odpowiedź w jednym zdaniu + założenia (wersja 2) ----
+  renderBacklogHeadline(model, data);
+
+  // limit zabezpieczający
+  const ge=$('globalErr');
+  if(model.capHit){ ge.textContent='Przekroczono limit '+MAX_SPRINTS+' sprintów w symulacji (bardzo niska przepustowość). Nie można przedstawić wiarygodnej prognozy ukończenia — zweryfikuj dane historyczne.'; ge.classList.add('show'); }
+  else ge.classList.remove('show');
+}
+
+function renderCrSection(model, data){
+  const probsPct=data.probsPct;
+  const base=model.results[0];
+  const crs=model.results.slice(1); // aktywne scenariusze (już policzone)
+  const noneMsg=$('crNoneMsg'); noneMsg.className='banner banner-info';
+  if(crs.length===0){ noneMsg.textContent='Brak aktywnych scenariuszy CR. Dodaj scenariusz zmiany zakresu w panelu po lewej, aby porównać go z prognozą podstawową.'; noneMsg.classList.add('show'); }
+  else noneMsg.classList.remove('show');
+
+  // Wykres nakładkowy (baza w tle + scenariusze CR)
+  drawCRChart(model, data);
+
+  // Tabela: liczba historyjek do daty granicznej
+  const t2=$('crTable2');
+  let head2='<caption>Liczba historyjek ukończonych do daty granicznej ('+(model.K>0?fmtDate(model.lastEndMs):'brak sprintów')+')</caption><thead><tr><th>Poziom</th><th>Baza (szt.)</th>';
+  crs.forEach((r,i)=>{ head2+='<th>'+scnPill(r,i)+'<br>szt.</th><th>Δ szt.</th><th>Udział zakresu</th>'; });
+  head2+='</tr></thead>';
+  let body2='<tbody>';
+  probsPct.forEach((pct,idx)=>{
+    body2+='<tr><td><span class="pill pill-base">'+pct+'%</span></td>';
+    const b=base.quantity.perProb[idx];
+    body2+='<td>'+b.items+'</td>';
+    crs.forEach((r)=>{
+      const q=r.quantity.perProb[idx];
+      const d=q.items-b.items;
+      const share=q.share!==null?Math.round(q.share)+'%':'—';
+      body2+='<td>'+q.items+'</td><td>'+deltaSpan(d,'',true)+'</td><td>'+share+'</td>';
+    });
+    body2+='</tr>';
+  });
+  body2+='</tbody>';
+  t2.innerHTML=head2+body2;
+}
+
+function drawCRChart(model, data){
+  const canvas=$('crChart'); const col=themeColors(); const legend=$('crChartLegend');
+  const probsPct=data.probsPct;
+  const dpr=window.devicePixelRatio||1; const cssW=canvas.clientWidth||760; const cssH=360;
+  canvas.width=cssW*dpr; canvas.height=cssH*dpr; canvas.style.height=cssH+'px';
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cssW,cssH);
+  const base=model.results[0];
+  if(!base.chart){
+    ctx.fillStyle=col.muted; ctx.font='14px system-ui'; ctx.textAlign='center';
+    ctx.fillText(base.emptyBacklog?'Backlog pusty — brak danych do wykresu':'Brak prognozowanej krzywej ukończenia', cssW/2, cssH/2);
+    legend.innerHTML=''; return;
+  }
+  // wspólny zakres osi X (najdłuższy scenariusz)
+  let maxS=base.chart.maxSprint;
+  model.results.forEach(r=>{ if(r.chart&&r.chart.maxSprint>maxS) maxS=r.chart.maxSprint; });
+  const padL=46,padR=18,padT=16,padB=46; const W=cssW-padL-padR, Hh=cssH-padT-padB;
+  const xOf=s=>padL+(maxS<=1?0:s/maxS*W); const yOf=f=>padT+(1-f)*Hh;
+
+  // siatka Y
+  ctx.strokeStyle=col.grid; ctx.fillStyle=col.muted; ctx.lineWidth=1; ctx.font='11px system-ui';
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const f=i/4,y=yOf(f); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.fillText(Math.round(f*100)+'%',padL-8,y); }
+  // oś X: daty
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  const ticks=Math.min(6,maxS);
+  for(let i=0;i<=ticks;i++){ const s=Math.round(i/ticks*maxS); if(s<1) continue; const x=xOf(s); const dateMs=sprintEnd(data.startMs,s,data.len);
+    ctx.strokeStyle=col.grid; ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,padT+Hh); ctx.stroke();
+    ctx.fillStyle=col.muted; ctx.fillText(fmtDate(dateMs).slice(0,5),x,padT+Hh+8); }
+
+  function curve(r,color,width,dash,fill){
+    const pts=r.chart.points; ctx.strokeStyle=color; ctx.lineWidth=width; ctx.setLineDash(dash||[]);
+    ctx.beginPath(); ctx.moveTo(xOf(0),yOf(0)); let prevY=yOf(0);
+    pts.forEach(p=>{ const x=xOf(p.sprint),y=yOf(p.frac); ctx.lineTo(x,prevY); ctx.lineTo(x,y); prevY=y; });
+    ctx.lineTo(xOf(maxS),prevY); ctx.stroke(); ctx.setLineDash([]);
+    if(fill){ ctx.lineTo(xOf(maxS),yOf(0)); ctx.closePath(); ctx.globalAlpha=.07; ctx.fillStyle=color; ctx.fill(); ctx.globalAlpha=1; }
+  }
+  // baza w tle — przygaszona, przerywana, z wypełnieniem (punkt odniesienia)
+  curve(base, col.muted, 2, [5,4], true);
+  // scenariusze CR — wyraźne kolory
+  model.results.forEach((r,i)=>{ if(i===0||!r.chart) return; const color=i===1?col.cr1:col.cr2; curve(r,color,2.8,[]); });
+
+  // legenda
+  let lg='<span><i style="background:'+col.muted+'"></i>Baza — '+base.backlog+' hist.</span>';
+  model.results.forEach((r,i)=>{ if(i===0) return; const color=i===1?col.cr1:col.cr2;
+    lg+='<span><i style="background:'+color+'"></i>'+r.label.replace('Scenariusz ','')+' — '+r.backlog+' hist.'+(r.chart?'':' (natychmiast / brak krzywej)')+'</span>'; });
+  legend.innerHTML=lg;
+}
+
+/* paleta progów: najniższy → bursztyn, środkowy → niebieski, najwyższy → ZIELONY */
+function probColors(){
+  const cs=getComputedStyle(document.documentElement); const g=n=>cs.getPropertyValue(n).trim();
+  return [g('--prob-lo'),g('--prob-mid'),g('--prob-hi')];
+}
+function emptyMsg(ctx,col,w,h,txt){
+  ctx.fillStyle=col.muted; ctx.font='14px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,w/2,h/2);
+}
+
+/* Histogram: rozkład terminu ukończenia całości (ile symulacji kończy w danym sprincie) */
+function drawCompletionHist(base, probsPct, data){
+  const canvas=$('histChart'); const col=themeColors(); const pc=probColors(); const legend=$('histLegend');
+  const dpr=window.devicePixelRatio||1; const cssW=canvas.clientWidth||760; const cssH=320;
+  canvas.width=cssW*dpr; canvas.height=cssH*dpr; canvas.style.height=cssH+'px';
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cssW,cssH);
+  if(!base.chart){ emptyMsg(ctx,col,cssW,cssH,base.emptyBacklog?'Backlog pusty — brak rozkładu terminów':'Brak prognozowanego rozkładu terminów'); legend.innerHTML=''; return; }
+  const counts=base.chart.counts, total=base.chart.total, n=counts.length;
+  let maxC=1; for(const c of counts) if(c>maxC) maxC=c;
+  const padL=46,padR=18,padT=20,padB=44; const W=cssW-padL-padR, Hh=cssH-padT-padB;
+  const barW=W/n; const xOf=s=>padL+(s-1)*barW; const yOf=f=>padT+(1-f)*Hh;
+  const maxFrac=maxC/total;
+  ctx.strokeStyle=col.grid; ctx.lineWidth=1; ctx.font='11px system-ui'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const f=i/4,y=yOf(f); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.fillStyle=col.muted; ctx.fillText((f*maxFrac*100).toFixed(maxFrac<0.1?1:0)+'%',padL-8,y); }
+  ctx.fillStyle=col.accent; ctx.globalAlpha=.32;
+  for(let s=1;s<=n;s++){ const h=counts[s-1]/maxC; const x=xOf(s),y=yOf(h); ctx.fillRect(x+barW*0.12,y,Math.max(1,barW*0.76),(padT+Hh)-y); }
+  ctx.globalAlpha=1;
+  ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillStyle=col.muted;
+  const ticks=Math.min(6,n);
+  for(let i=0;i<=ticks;i++){ const s=Math.max(1,Math.round(i/ticks*n)); const x=xOf(s)+barW/2; ctx.fillText(fmtDate(sprintEnd(data.startMs,s,data.len)).slice(0,5),x,padT+Hh+8); }
+  base.completion.forEach((c,idx)=>{ if(c.noDate||!c.sprintCount) return; const x=xOf(c.sprintCount)+barW/2;
+    ctx.strokeStyle=pc[idx]; ctx.lineWidth=2.2; ctx.setLineDash([5,3]); ctx.beginPath(); ctx.moveTo(x,padT-4); ctx.lineTo(x,padT+Hh); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=pc[idx]; ctx.font='bold 10px system-ui'; ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText(probsPct[idx]+'%',x,padT-5); });
+  let lg=''; base.completion.forEach((c,idx)=>{ if(c.noDate) return; lg+='<span><i style="background:'+pc[idx]+'"></i>'+probsPct[idx]+'% → '+fmtDate(c.dateMs)+'</span>'; });
+  legend.innerHTML=lg;
+}
+
+/* Histogram: rozkład liczby historyjek dostarczonych do daty granicznej */
+function drawDeliveredHist(base, probsPct, data, model){
+  const canvas=$('qtyChart'); const col=themeColors(); const pc=probColors(); const legend=$('qtyLegend');
+  const dpr=window.devicePixelRatio||1; const cssW=canvas.clientWidth||760; const cssH=320;
+  canvas.width=cssW*dpr; canvas.height=cssH*dpr; canvas.style.height=cssH+'px';
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cssW,cssH);
+  if(!base.deliveredDist){ emptyMsg(ctx,col,cssW,cssH,base.emptyBacklog?'Backlog pusty — brak historyjek do dostarczenia':'Historia z samymi zerami — 0 dostarczonych historyjek'); legend.innerHTML=''; return; }
+  const counts=base.deliveredDist.counts, total=base.deliveredDist.total, backlog=base.deliveredDist.backlog; const n=backlog+1;
+  let maxC=1; for(const c of counts) if(c>maxC) maxC=c;
+  const padL=46,padR=18,padT=20,padB=44; const W=cssW-padL-padR, Hh=cssH-padT-padB;
+  const barW=W/n; const xOf=v=>padL+v*barW; const yOf=f=>padT+(1-f)*Hh;
+  const maxFrac=maxC/total;
+  ctx.strokeStyle=col.grid; ctx.lineWidth=1; ctx.font='11px system-ui'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const f=i/4,y=yOf(f); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.fillStyle=col.muted; ctx.fillText((f*maxFrac*100).toFixed(maxFrac<0.1?1:0)+'%',padL-8,y); }
+  ctx.fillStyle=col.accent; ctx.globalAlpha=.32;
+  for(let v=0;v<=backlog;v++){ const h=counts[v]/maxC; const x=xOf(v),y=yOf(h); ctx.fillRect(x+barW*0.12,y,Math.max(1,barW*0.76),(padT+Hh)-y); }
+  ctx.globalAlpha=1;
+  ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillStyle=col.muted;
+  const ticks=Math.min(8,Math.max(1,backlog));
+  for(let i=0;i<=ticks;i++){ const v=Math.round(i/ticks*backlog); const x=xOf(v)+barW/2; ctx.fillText(String(v),x,padT+Hh+8); }
+  base.quantity.perProb.forEach((q,idx)=>{ const x=xOf(q.items)+barW/2;
+    ctx.strokeStyle=pc[idx]; ctx.lineWidth=2.2; ctx.setLineDash([5,3]); ctx.beginPath(); ctx.moveTo(x,padT-4); ctx.lineTo(x,padT+Hh); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=pc[idx]; ctx.font='bold 10px system-ui'; ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText('≥'+q.items+' ('+probsPct[idx]+'%)',x,padT-5); });
+  let lg=''; base.quantity.perProb.forEach((q,idx)=>{ lg+='<span><i style="background:'+pc[idx]+'"></i>'+probsPct[idx]+'% → ≥ '+q.items+' '+elemWord(q.items)+'</span>'; });
+  legend.innerHTML=lg;
+}
+
+function scnPill(r,i){
+  const cls=i===0?'pill-cr1':'pill-cr2';
+  return '<span class="pill '+cls+'">'+r.label.replace('Scenariusz ','')+'</span><br><span style="font-size:.74rem;color:var(--muted)">'+r.backlog+' hist.</span>';
+}
+function deltaSpan(d,unit,invert){
+  const u=unit?(' '+unit):'';
+  if(d===0) return '<span class="delta-zero">0'+u+'</span>';
+  const cls = invert ? (d>0?'delta-neg':'delta-pos') : (d>0?'delta-pos':'delta-neg');
+  return '<span class="'+cls+'">'+(d>0?'+':'')+d+u+'</span>';
+}
+
+/* =========================================================================
+   WYKRES (Canvas, bez bibliotek)
+   ========================================================================= */
+function themeColors(){
+  const cs=getComputedStyle(document.documentElement);
+  const g=n=>cs.getPropertyValue(n).trim();
+  return {text:g('--text'),muted:g('--muted'),accent:g('--accent'),grid:g('--grid'),
+    surface:g('--surface-2'),cr1:g('--cr1'),cr2:g('--cr2'),border:g('--border-strong')};
+}
+function drawChart(base, probsPct){
+  const canvas=$('chart'); const col=themeColors();
+  const legend=$('chartLegend');
+  const dpr=window.devicePixelRatio||1;
+  const cssW=canvas.clientWidth||760; const cssH=340;
+  canvas.width=cssW*dpr; canvas.height=cssH*dpr;
+  canvas.style.height=cssH+'px';
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cssW,cssH);
+
+  if(!base.chart || base.emptyBacklog || base.allZeros){
+    ctx.fillStyle=col.muted; ctx.font='14px system-ui'; ctx.textAlign='center';
+    ctx.fillText(base.emptyBacklog?'Backlog pusty — brak danych do wykresu':'Brak prognozowanej krzywej ukończenia', cssW/2, cssH/2);
+    legend.innerHTML=''; return;
+  }
+  const pts=base.chart.points;
+  const padL=46,padR=18,padT=16,padB=46;
+  const W=cssW-padL-padR, Hh=cssH-padT-padB;
+  const maxS=base.chart.maxSprint;
+  const xOf=s=>padL + (maxS<=1?0:(s-0)/maxS*W);
+  const yOf=f=>padT + (1-f)*Hh;
+
+  // siatka pozioma + oś Y %
+  ctx.strokeStyle=col.grid; ctx.fillStyle=col.muted; ctx.lineWidth=1; ctx.font='11px system-ui';
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const f=i/4; const y=yOf(f);
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke();
+    ctx.fillText(Math.round(f*100)+'%', padL-8, y); }
+
+  // oś X: etykiety dat
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  const ticks=Math.min(6,maxS);
+  for(let i=0;i<=ticks;i++){ const s=Math.round(i/ticks*maxS); if(s<1) continue;
+    const x=xOf(s); const d=pts[Math.min(s-1,pts.length-1)];
+    ctx.strokeStyle=col.grid; ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,padT+Hh); ctx.stroke();
+    ctx.fillStyle=col.muted; ctx.fillText(fmtDate(d.dateMs).slice(0,5), x, padT+Hh+8); }
+
+  // krzywa skumulowana (schodkowa)
+  ctx.strokeStyle=col.accent; ctx.lineWidth=2.4; ctx.beginPath();
+  ctx.moveTo(xOf(0),yOf(0));
+  let prevY=yOf(0);
+  pts.forEach(p=>{ const x=xOf(p.sprint),y=yOf(p.frac); ctx.lineTo(x,prevY); ctx.lineTo(x,y); prevY=y; });
+  ctx.stroke();
+  // wypełnienie pod krzywą
+  ctx.lineTo(xOf(maxS),yOf(0)); ctx.closePath();
+  ctx.globalAlpha=.10; ctx.fillStyle=col.accent; ctx.fill(); ctx.globalAlpha=1;
+
+  // progi (paleta: najniższy bursztyn, środkowy niebieski, najwyższy zielony)
+  const markColors=probColors();
+  base.completion.forEach((c,idx)=>{
+    if(c.noDate||!c.sprintCount) return;
+    const frac=probsPct[idx]/100;
+    const x=xOf(c.sprintCount), y=yOf(frac);
+    ctx.strokeStyle=markColors[idx%3]; ctx.setLineDash([4,4]); ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(x,y); ctx.lineTo(x,padT+Hh); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=markColors[idx%3]; ctx.beginPath(); ctx.arc(x,y,4,0,7); ctx.fill();
+  });
+
+  // legenda
+  let lg='<span><i style="background:'+col.accent+'"></i>Skumulowane prawdopodobieństwo</span>';
+  base.completion.forEach((c,idx)=>{ if(c.noDate) return;
+    lg+='<span><i style="background:'+markColors[idx%3]+'"></i>'+probsPct[idx]+'% → '+fmtDate(c.dateMs)+'</span>'; });
+  legend.innerHTML=lg;
+}
+
+/* =========================================================================
+   POMOCNICZE: odmiana słów
+   ========================================================================= */
+function plural(n,one,few,many){ n=Math.abs(n);
+  if(n===1) return one;
+  const d=n%10,h=n%100;
+  if(d>=2&&d<=4&&!(h>=12&&h<=14)) return few;
+  return many; }
+function sprintWord(n){ return plural(n,'sprint','sprinty','sprintów'); }
+function elemWord(n){ return plural(n,'historyjka','historyjki','historyjek'); }
+
+/* =========================================================================
+   PRZEPŁYW: przeliczanie, stale, reset, motyw
+   ========================================================================= */
+function buildScenarios(backlog){
+  const list=[{id:'base',label:'Baza',backlog:backlog}];
+  const errs=[];
+  crScenarios.forEach((scn,i)=>{
+    if(isNaN(scn.value)){ errs.push('Scenariusz CR '+(i+1)+': podaj wartość zmiany.'); return; }
+    if(scn.unit==='items' && !Number.isInteger(scn.value)){ errs.push('Scenariusz CR '+(i+1)+': zmiana w historyjkach musi być liczbą całkowitą.'); return; }
+    const delta=crChangeItems(scn,backlog); const nb=backlog+delta;
+    if(nb<0){ errs.push('Scenariusz CR '+(i+1)+': nowy backlog byłby ujemny ('+nb+') — scenariusz odrzucony.'); return; }
+    list.push({id:scn.id,label:'Scenariusz CR '+(i+1),backlog:nb,delta:delta});
+  });
+  return {list,errs};
+}
+
+function recalc(){
+  const res=readInputs();
+  const ge=$('globalErr'); ge.classList.remove('show');
+  if(!res.ok){ $('staleBanner').classList.remove('show'); return; }
+  const data=res.data;
+  const sc=buildScenarios(data.backlog);
+  const crErr=$('crErr');
+  if(sc.errs.length){ crErr.innerHTML=sc.errs.join('<br>'); crErr.classList.add('show'); }
+  else crErr.classList.remove('show');
+
+  const model=computeModel({
+    backlog:data.backlog, history:data.history, startMs:data.startMs, len:data.len,
+    probs:data.probs, deadlineMs:data.deadlineMs, scenarios:sc.list
+  });
+  render(model,data);
+  $('staleBanner').classList.remove('show');
+}
+
+let dirty=false;
+function markStale(){ if(lastModel){ $('staleBanner').classList.add('show'); } }
+
+function updateHistoryHint(){
+  const len=parseInt(document.querySelector('input[name=sprintLen]:checked').value,10);
+  const hint=$('historyHint');
+  if(len===7) hint.innerHTML='Wpisz po jednej wartości dla każdego sprintu 1-tygodniowego. <em>Domyślna historia pochodzi ze sprintów dwutygodniowych.</em>';
+  else hint.innerHTML='Wpisz po jednej wartości dla każdego sprintu 2-tygodniowego. <em>Domyślna historia pochodzi ze sprintów dwutygodniowych.</em>';
+  // uwaga tygodniowa przy domyślnej historii
+  const note=$('historyNote');
+  const curr=$('history').value.replace(/\s+/g,'');
+  const def=DEFAULT_HISTORY_STR.replace(/\s+/g,'');
+  if(len===7 && curr===def){ note.hidden=false;
+    note.textContent='Dane przykładowe pochodzą ze sprintów dwutygodniowych. Wprowadź dane tygodniowe, aby prognoza odzwierciedlała rzeczywiste tempo tygodniowe.'; }
+  else note.hidden=true;
+}
+
+function resetDefaults(){
+  $('backlog').value='62';
+  $('startDate').value='2027-01-01';
+  document.querySelector('input[name=sprintLen][value="14"]').checked=true;
+  $('history').value=DEFAULT_HISTORY_STR;
+  $('p1').value='50'; $('p2').value='85'; $('p3').value='95';
+  $('deadline').value='2027-03-31';
+  $('lookback').value='';
+  crScenarios=[
+    {id:'cr1',label:'Scenariusz CR 1',unit:'percent',value:20},
+    {id:'cr2',label:'Scenariusz CR 2',unit:'percent',value:30},
+  ];
+  renderCrEditors();
+  updateHistoryHint();
+  clearErrors();
+  updateDqBacklog();
+  recalc();
+}
+
+function redrawCharts(){
+  if(!lastModel || !lastModel._data) return;
+  const d=lastModel._data, base=lastModel.results[0];
+  drawCompletionHist(base, d.probsPct, d);
+  drawChart(base, d.probsPct);
+  drawDeliveredHist(base, d.probsPct, d, lastModel);
+  drawCRChart(lastModel, d);
+}
+/* ---- MOTYW ---- */
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  $('themeLight').setAttribute('aria-pressed', t==='light');
+  $('themeDark').setAttribute('aria-pressed', t==='dark');
+  redrawCharts();
+  document.dispatchEvent(new CustomEvent('mc:themechange'));
+}
+function initTheme(){
+  let t=null;
+  try{ t=localStorage.getItem('mc-theme'); }catch(e){}
+  if(!t){ t=(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'; }
+  applyTheme(t);
+}
+function setTheme(t){ applyTheme(t); try{ localStorage.setItem('mc-theme',t); }catch(e){} }
+
+/* =========================================================================
+   INICJALIZACJA
+   ========================================================================= */
+function init(){
+  initTheme();
+  $('themeLight').addEventListener('click',()=>setTheme('light'));
+  $('themeDark').addEventListener('click',()=>setTheme('dark'));
+
+  $('form').addEventListener('submit',e=>{ e.preventDefault(); recalc(); });
+  $('reset').addEventListener('click',resetDefaults);
+  $('deadline').addEventListener('change',markStale);
+
+  // zmiana parametrów => stale
+  ['backlog','startDate','history','lookback','p1','p2','p3','deadline'].forEach(id=>{
+    $(id).addEventListener('input',()=>{ markStale(); if(id==='backlog') updateCrCalc(); if(id==='history') updateHistoryHint(); if(id==='history'||id==='lookback') updateDqBacklog(); });
+  });
+  $('histMore').addEventListener('toggle',()=>{ if($('histMore').open&&lastModel&&lastModel._data) drawCompletionHist(lastModel.results[0],lastModel._data.probsPct,lastModel._data); });
+  updateDqBacklog();
+  document.querySelectorAll('input[name=sprintLen]').forEach(r=>r.addEventListener('change',()=>{
+    updateHistoryHint(); markStale(); // zachowujemy wpisane liczby, nie przeliczamy historii
+  }));
+
+  renderCrEditors();
+  updateHistoryHint();
+  let rT; window.addEventListener('resize',()=>{ clearTimeout(rT); rT=setTimeout(redrawCharts,120); });
+  // po pokazaniu zakładki płótna mają już właściwą szerokość — przerysuj
+  document.addEventListener('mc:tabchange',e=>{ if(e.detail==='backlog') requestAnimationFrame(redrawCharts); });
+
+  // pierwsze otwarcie: gotowe wyniki dla przykładu
+  recalc();
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+
+/* eksport do ewentualnej weryfikacji w konsoli */
+/* przycisk „+ Dodaj drugi scenariusz” (wcześniej bez obsługi) */
+$('crAdd').addEventListener('click',()=>{
+  if(crScenarios.length>=2) return;
+  crScenarios.push({id:'cr'+(crScenarios.length+1),label:'Scenariusz CR '+(crScenarios.length+1),unit:'percent',value:30});
+  renderCrEditors(); markStale();
+  const inp=document.querySelector('[data-value="'+(crScenarios.length-1)+'"]'); if(inp) inp.focus();
+});
+
+/* ---- stan zakładki dla zapisu scenariuszy (Supabase) ---- */
+function backlogSnapshot(){
+  const n=v=>{ const t=String(v).trim(); return t===''?null:Number(t); };
+  return {v:1, backlog:n($('backlog').value), startDate:$('startDate').value,
+    sprintLen:+document.querySelector('input[name=sprintLen]:checked').value,
+    history:$('history').value.trim(), probs:[n($('p1').value),n($('p2').value),n($('p3').value)],
+    deadline:$('deadline').value, lookback:n($('lookback').value),
+    cr:crScenarios.map(s=>({unit:s.unit,value:isNaN(s.value)?null:s.value}))};
+}
+function backlogValidate(){
+  const r=readInputs(); if(!r.ok) return false;
+  return buildScenarios(r.data.backlog).errs.length===0;
+}
+function backlogApply(d){
+  if(!d||typeof d!=='object') return false;
+  const s=v=>(v===null||v===undefined)?'':String(v);
+  $('backlog').value=s(d.backlog);
+  $('startDate').value=typeof d.startDate==='string'?d.startDate:'';
+  document.querySelector('input[name=sprintLen][value="'+(d.sprintLen===7?7:14)+'"]').checked=true;
+  $('history').value=s(d.history);
+  const pr=Array.isArray(d.probs)?d.probs:[];
+  $('p1').value=s(pr[0]); $('p2').value=s(pr[1]); $('p3').value=s(pr[2]);
+  $('deadline').value=typeof d.deadline==='string'?d.deadline:'';
+  $('lookback').value=s(d.lookback);   // scenariusze z wersji 1 nie mają tego pola => cała historia
+  crScenarios=(Array.isArray(d.cr)?d.cr:[]).slice(0,2).map((c,i)=>({id:'cr'+(i+1),label:'Scenariusz CR '+(i+1),
+    unit:c&&c.unit==='items'?'items':'percent', value:(c&&typeof c.value==='number')?c.value:NaN}));
+  renderCrEditors(); updateHistoryHint(); updateDqBacklog(); recalc();
+  return true;
+}
+
+/* =========================================================================
+   WERSJA 2: wspólne elementy (odpowiedź w jednym zdaniu ze statusem RAG,
+   jakość danych historycznych, kopiowanie podsumowania, wydruk / PDF).
+   Udostępnione też zakładce epików przez window.MC_UI i window.MC_DQ.
+   ========================================================================= */
+const UI={};
+UI.num=(x,d)=>Number(x).toLocaleString('pl-PL',{maximumFractionDigits:d==null?1:d});
+UI.esc=s=>String(s==null?'':s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+UI.plain=html=>{ const d=document.createElement('div'); d.innerHTML=html; return d.textContent.replace(/\s+/g,' ').trim(); };
+UI.today=()=>{ const t=new Date(); return String(t.getDate()).padStart(2,'0')+'.'+String(t.getMonth()+1).padStart(2,'0')+'.'+t.getFullYear(); };
+UI.relDays=days=>{
+  if(days===0) return 'dokładnie w dniu terminu';
+  const a=Math.abs(days), w=Math.round(a/7);
+  const span=a>=14 ? w+' '+plural(w,'tydzień','tygodnie','tygodni') : a+' '+plural(a,'dzień','dni','dni');
+  return days>0 ? span+' po terminie' : span+' przed terminem';
+};
+UI.dDays=d=> d===0?'bez zmian':(d>0?'+':'−')+Math.abs(d)+' '+plural(Math.abs(d),'dzień','dni','dni');
+UI.status=(dateMs,deadlineMs,lenDays)=> dateMs==null?'bad' : dateMs<=deadlineMs?'ok' : dateMs<=deadlineMs+lenDays*86400000?'warn':'bad';
+UI.RAG={ok:'W terminie',warn:'Ryzyko: do 1 sprintu po terminie',bad:'Termin zagrożony'};
+// o: {title, status, label?, main(html), subs[html], assumptions[html]}
+UI.headline=(el,o)=>{
+  const label=o.label||UI.RAG[o.status], date=UI.today();
+  el.className='headline '+o.status;
+  el.innerHTML='<div class="hl-top"><span class="rag"><span aria-hidden="true">●</span>'+UI.esc(label)+'</span><span class="hl-date">Prognoza z '+date+'</span></div>'+
+    '<p class="hl-main">'+o.main+'</p>'+(o.subs||[]).map(s=>'<p class="hl-sub">'+s+'</p>').join('')+
+    '<div class="hl-actions"><button type="button" class="btn btn-ghost btn-sm" data-hl="copy">Kopiuj podsumowanie</button>'+
+    '<button type="button" class="btn btn-ghost btn-sm" data-hl="print">Drukuj / PDF</button></div>'+
+    '<details class="assume"'+(el._open?' open':'')+'><summary>Założenia prognozy ('+o.assumptions.length+')</summary><ul>'+
+    o.assumptions.map(a=>'<li>'+a+'</li>').join('')+'</ul></details>';
+  const det=el.querySelector('details.assume'); det.addEventListener('toggle',()=>{ el._open=det.open; });
+  el._summary=()=>[o.title+' — prognoza z '+date, 'Status: '+label, '', UI.plain(o.main)]
+    .concat((o.subs||[]).map(UI.plain), ['', 'Założenia:'], o.assumptions.map(a=>'• '+UI.plain(a)), ['', location.href.split('#')[0]]).join('\n');
+  el._short=(UI.plain(o.main)+' '+(o.subs&&o.subs[0]?UI.plain(o.subs[0]):'')).slice(0,500);
+};
+UI.copy=(text,btn)=>{
+  const done=ok=>{ const old=btn.textContent; btn.textContent=ok?'Skopiowano ✓':'Nie udało się skopiować'; setTimeout(()=>btn.textContent=old,2000); };
+  const fallback=()=>{ const ta=document.createElement('textarea'); ta.value=text; ta.setAttribute('readonly',''); ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select(); let ok=false; try{ ok=document.execCommand('copy'); }catch(e){} ta.remove(); done(ok); };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(()=>done(true),fallback); else fallback();
+};
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-hl]'); if(!b) return;
+  const hl=b.closest('.headline');
+  if(b.dataset.hl==='copy'&&hl&&hl._summary) UI.copy(hl._summary(),b);
+  if(b.dataset.hl==='print') window.print();
+});
+// wydruk zawsze w jasnych kolorach i z rozwiniętymi szczegółami
+let printTheme=null;
+window.addEventListener('beforeprint',()=>{
+  printTheme=document.documentElement.getAttribute('data-theme');
+  document.documentElement.setAttribute('data-theme','light');
+  document.querySelectorAll('details.assume,details.more').forEach(d=>{ d.dataset.was=d.open?'1':''; d.open=true; });
+  redrawCharts(); document.dispatchEvent(new CustomEvent('mc:themechange'));
+});
+window.addEventListener('afterprint',()=>{
+  if(printTheme) document.documentElement.setAttribute('data-theme',printTheme);
+  document.querySelectorAll('details.assume,details.more').forEach(d=>{ d.open=d.dataset.was==='1'; });
+  redrawCharts(); document.dispatchEvent(new CustomEvent('mc:themechange'));
+});
+
+/* ---- jakość danych historycznych (progi wg skilla scrum-master) ---- */
+const DQ={
+  analyze(arr){
+    const n=arr.length; if(!n) return null;
+    const mean=arr.reduce((a,b)=>a+b,0)/n;
+    const sd=n>1?Math.sqrt(arr.reduce((a,b)=>a+(b-mean)*(b-mean),0)/(n-1)):0;
+    const cv=mean>0?sd/mean:null;
+    let slopeRel=null;
+    if(n>=3&&mean>0){ const mx=(n-1)/2; let num=0,den=0; arr.forEach((y,i)=>{ num+=(i-mx)*(y-mean); den+=(i-mx)*(i-mx); }); slopeRel=(num/den)/mean; }
+    const outliers=sd>0?arr.map((v,i)=>({v,i,z:(v-mean)/sd})).filter(o=>Math.abs(o.z)>=2):[];
+    return {n,mean,sd,cv,slopeRel,outliers};
+  },
+  render(el,arr,totalN){
+    const a=arr&&DQ.analyze(arr); if(!a){ el.className='dq'; el.innerHTML=''; return null; }
+    let level='ok'; const msgs=[]; const bump=l=>{ if(l==='bad'||(l==='warn'&&level==='ok')) level=l; };
+    if(a.n<3){ msgs.push('Za mało danych (mniej niż 3 sprinty) — prognoza niewiarygodna.'); bump('bad'); }
+    else if(a.n<6){ msgs.push('Mniej niż 6 sprintów — prognoza orientacyjna (zalecane 6–8).'); bump('warn'); }
+    if(a.mean===0){ msgs.push('Same zera — brak tempa, na którym można oprzeć prognozę.'); bump('bad'); }
+    let cvTxt='—';
+    if(a.cv!=null){ const c=a.cv*100, vol=c<=15?'niska':c<=25?'umiarkowana':c<=40?'wysoka':'bardzo wysoka';
+      cvTxt=UI.num(c,0)+'% ('+vol+')';
+      if(c>20){ msgs.push('Duża zmienność tempa — pokazuj interesariuszom zakres dat (np. 50–95%), nie jedną datę.'); bump('warn'); } }
+    let trend='—';
+    if(a.slopeRel!=null){ const s=a.slopeRel*100;
+      // progi skilla scrum-master: ±5% stabilny, powyżej 8% wyraźny trend
+      const a8=Math.abs(s)>8, a5=Math.abs(s)>5;
+      trend=!a5?'stabilny':(s>0?(a8?'rosnący':'lekko rosnący')+' (ok. +':(a8?'malejący':'lekko malejący')+' (ok. ')+UI.num(s,0)+'% na sprint)';
+      if(a8){ msgs.push('Tempo ma wyraźny trend — rozważ uwzględnienie tylko ostatnich sprintów.'); bump('warn'); } }
+    if(a.outliers.length){ const off=(totalN||a.n)-a.n;
+      msgs.push('Nietypowe wartości: '+a.outliers.map(o=>o.v+' (sprint nr '+(off+o.i+1)+')').join(', ')+' — sprawdź, czy to wyjątek.'); bump('warn'); }
+    el.className='dq '+level;
+    el.innerHTML='<div class="dq-t">Jakość danych: '+(level==='ok'?'dobra':level==='warn'?'z zastrzeżeniami':'niewystarczająca')+'</div>'+
+      '<div>'+a.n+' '+plural(a.n,'sprint','sprinty','sprintów')+(totalN&&totalN>a.n?' (z '+totalN+')':'')+' · średnio '+UI.num(a.mean,1)+' na sprint · zmienność (CV) '+cvTxt+' · trend: '+trend+'</div>'+
+      (msgs.length?'<ul>'+msgs.map(m=>'<li>'+UI.esc(m)+'</li>').join('')+'</ul>':'');
+    return {a,level};
+  }
+};
+window.MC_UI=UI; window.MC_DQ=DQ;
+
+function updateDqBacklog(){
+  const el=$('dqBacklog'), h=parseHistory($('history').value), lb=$('lookback').value.trim();
+  if(h.err){ DQ.render(el,null); return; }
+  const n=/^\d+$/.test(lb)&&+lb>=1&&+lb<=20?+lb:null;
+  DQ.render(el, n?h.value.slice(-n):h.value, h.value.length);
+}
+
+function renderBacklogHeadline(model,data){
+  const el=$('bHeadline'), base=model.results[0], P=data.probsPct, mi=Math.min(1,P.length-1), p=P[mi];
+  const c=base.completion[mi], q=base.quantity.perProb[mi], dl=data.deadlineMs, B=base.backlog;
+  let status, main; const subs=[];
+  if(base.emptyBacklog){ status='ok'; main='Backlog jest pusty — nie ma historyjek do dostarczenia.'; }
+  else if(c.noDate){ status='bad'; main='Brak prognozy ukończenia — historia przepustowości zawiera same zera.'; }
+  else {
+    status=UI.status(c.dateMs,dl,data.len);
+    const d=Math.round((c.dateMs-dl)/86400000);
+    main='Z <b>'+p+'% pewnością</b> cały backlog ('+B+' '+elemWord(B)+') będzie gotowy do <b>'+fmtDate(c.dateMs)+'</b> — '+UI.relDays(d)+' ('+fmtDate(dl)+').';
+    const lo=base.completion[0], hi=base.completion[P.length-1];
+    if(!lo.noDate&&!hi.noDate) subs.push('Zakres przy pewności '+P[0]+'–'+P[P.length-1]+'%: '+fmtDate(lo.dateMs)+' – '+fmtDate(hi.dateMs)+'.');
+  }
+  if(!base.emptyBacklog) subs.push('Do '+fmtDate(dl)+' z '+p+'% pewnością dostarczymy co najmniej <b>'+q.items+' z '+B+'</b> '+(B===1?'historyjki':'historyjek')+(q.share!=null?' ('+Math.round(q.share)+'%)':'')+'.');
+  model.results.slice(1).forEach(r=>{ const rc=r.completion[mi];
+    if(rc&&!rc.noDate&&!c.noDate) subs.push(UI.esc(r.label.replace('Scenariusz ',''))+' ('+r.backlog+' '+elemWord(r.backlog)+'): gotowe do '+fmtDate(rc.dateMs)+' ('+UI.dDays(Math.round((rc.dateMs-c.dateMs)/86400000))+' względem bazy).'); });
+  const dq=DQ.analyze(data.history);
+  const as=[
+    'Historia: '+data.history.length+' '+plural(data.history.length,'sprint','sprinty','sprintów')+(data.lookback&&data.historyAll.length>data.history.length?' (ostatnie z '+data.historyAll.length+')':'')+
+      ', średnio '+UI.num(dq.mean,1)+' historyjki na sprint, zmienność (CV) '+(dq.cv!=null?UI.num(dq.cv*100,0)+'%':'—')+'.',
+    'Przyszłe tempo podobne do dotychczasowego; każdy sprint losowany niezależnie z historii.',
+    'Start '+fmtDate(data.startMs)+', sprint '+(data.len===7?'1-tygodniowy':'2-tygodniowy')+', data graniczna '+fmtDate(dl)+'.',
+    'Zakres bazowy stały: '+B+' '+elemWord(B)+'.'+(model.results.length>1?' Scenariusze CR liczone względem bazy, zmieniony zakres dostępny od startu prac.':''),
+    'Poziomy pewności '+P.join(' / ')+'%; 20 000 symulacji ze stałym ziarnem.'
+  ];
+  UI.headline(el,{title:'Prognoza backlogu',status,main,subs,assumptions:as});
+}
+
+window.MC_STATE=window.MC_STATE||{};
+window.MC_STATE.backlog={snapshot:backlogSnapshot,validate:backlogValidate,apply:backlogApply,
+  summary:()=>{ const el=$('bHeadline'); return el._short||''; }};
+
+window.__MC__={computeModel,sprintsByDeadline,sprintEnd,fmtDate,isoToUTC,roundHalfUpAbs,runSimulation,qtyForProb,sprintForProb};
+})();
+</script>
+
+<script>
+"use strict";
+/* =========================================================================
+   ZAKŁADKA 2: PROGNOZA EPIKÓW (na wzór Feature Cut Line Forecaster)
+   ========================================================================= */
+(function(){
+/*CORE-START*/
+const E_DAY=86400000;
+const E_N=20000, E_MAXS=520;                    // 520 sprintów = limit zabezpieczający
+const E_SEED_SIZE=0x51ED270B, E_SEED_TP=0x2545F491;
+function eIso(iso){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||''); if(!m) return NaN;
+  const y=+m[1],mo=+m[2],d=+m[3]; const ms=Date.UTC(y,mo-1,d); const dt=new Date(ms);
+  if(dt.getUTCFullYear()!==y||dt.getUTCMonth()!==mo-1||dt.getUTCDate()!==d) return NaN; return ms; }
+function eFmt(ms){ const dt=new Date(ms); return String(dt.getUTCDate()).padStart(2,'0')+'.'+String(dt.getUTCMonth()+1).padStart(2,'0')+'.'+dt.getUTCFullYear(); }
+function eSprintEnd(startMs,n,len){ return startMs+(n*len-1)*E_DAY; }
+function eSprintsBy(startMs,deadlineMs,len){ const d=Math.round((deadlineMs-startMs)/E_DAY); return d<0?0:Math.floor((d+1)/len); }
+function eRng(a){ return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a);
+  t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
+
+// mnożnik sprintu = średnia mnożników miesięcznych ważona dniami sprintu
+function sprintMultipliers(startMs,len,months,count){
+  const arr=new Float64Array(count+1);
+  for(let s=1;s<=count;s++){ let sum=0; const b=startMs+(s-1)*len*E_DAY;
+    for(let d=0;d<len;d++) sum+=months[new Date(b+d*E_DAY).getUTCMonth()];
+    arr[s]=sum/len; }
+  return arr;
+}
+// poziom znajomości użyty w obliczeniach (0 = najlepiej znany)
+function effLevels(epics,learnK,learnN){ return epics.map((e,i)=> i>=learnK ? Math.max(0,e.lvl-learnN) : e.lvl); }
+function triangular(u,a,c,b){ if(b<=a) return a; const F=(c-a)/(b-a);
+  return u<F ? a+Math.sqrt(u*(b-a)*(c-a)) : b-Math.sqrt((1-u)*(b-a)*(b-c)); }
+
+/* Symulacja: osobne strumienie losowe dla rozmiarów i przepustowości (na próbę),
+   więc zmiana jednego epiku nie przesuwa losowań pozostałych ani tempa. */
+function simulateEpics(cfg){
+  const E=cfg.epics.length, N=cfg.N||E_N, mult=cfg.mult, MAXS=mult.length-1, SENT=MAXS+1;
+  const comp=[]; for(let e=0;e<E;e++) comp.push(new Int32Array(N));
+  const totals=new Int32Array(N); const target=new Float64Array(E);
+  const H=cfg.history?cfg.history.length:0; let capHit=false;
+  for(let t=0;t<N;t++){
+    const rs=eRng((E_SEED_SIZE+t)|0), rt=eRng((E_SEED_TP+t)|0);
+    let c=0;
+    for(let e=0;e<E;e++){
+      const ep=cfg.epics[e], L=cfg.levels[cfg.eff[e]];
+      const base=ep.min+Math.floor(rs()*(ep.max-ep.min+1));
+      const split=cfg.splitLo+rs()*(cfg.splitHi-cfg.splitLo);
+      const grow=L.lo+rs()*(L.hi-L.lo);
+      c+=Math.max(0,Math.round(base*split*grow)); target[e]=c;
+    }
+    totals[t]=c;
+    let idx=0; while(idx<E && target[idx]<=0){ comp[idx][t]=0; idx++; }
+    let cum=0,s=0;
+    while(idx<E && s<MAXS){
+      s++;
+      const tp = cfg.tpMode==='data' ? cfg.history[(rt()*H)|0] : triangular(rt(),cfg.est.min,cfg.est.mode,cfg.est.max);
+      cum+=tp*cfg.focus*mult[s];
+      while(idx<E && cum>=target[idx]-1e-9){ comp[idx][t]=s; idx++; }
+    }
+    if(idx<E){ capHit=true; for(;idx<E;idx++) comp[idx][t]=SENT; }
+  }
+  return {comp,totals,capHit,SENT,N};
+}
+
+function analyzeEpics(sim,c){
+  const {comp,totals,N,SENT}=sim; const E=comp.length; const p=c.conf/100;
+  const K=eSprintsBy(c.startMs,c.targetMs,c.len);
+  const q=(sorted,pp)=>sorted[Math.ceil(pp*N)-1];
+  const dateOf=s=> s<=0 ? c.startMs : eSprintEnd(c.startMs,s,c.len);
+  const countHist=new Int32Array(E+1);
+  for(let t=0;t<N;t++){ let k=0; while(k<E && comp[k][t]<=K) k++; countHist[k]++; }
+  const epics=[];
+  for(let e=0;e<E;e++){
+    const sorted=Int32Array.from(comp[e]).sort();
+    const sp=q(sorted,p), s50=q(sorted,0.5), s95=q(sorted,0.95);
+    let done=0; for(let t=0;t<N;t++) if(comp[e][t]<=K) done++;
+    const r={sprint:sp<SENT?sp:null, dateMs:sp<SENT?dateOf(sp):null,
+             d50:s50<SENT?dateOf(s50):null, d95:s95<SENT?dateOf(s95):null, pByTarget:done/N};
+    r.status = r.dateMs===null ? 'miss' : r.dateMs<=c.targetMs ? 'ok' : r.dateMs<=c.targetMs+c.len*E_DAY ? 'warn' : 'miss';
+    epics.push(r);
+  }
+  let cut=0; while(cut<E && epics[cut].status==='ok') cut++;
+  // liczba epików „co najmniej X” przy pewności p (z rozkładu) — przy realizacji po kolei równa linii odcięcia
+  let acc=0, countAtConf=0; for(let k=E;k>=0;k--){ acc+=countHist[k]; if(acc/N>=p){ countAtConf=k; break; } }
+  const st=Int32Array.from(totals).sort();
+  return {K,epics,cut,countHist,countAtConf,totalMedian:q(st,0.5),totalConf:q(st,p),capHit:sim.capHit,N};
+}
+/*CORE-END*/
+
+const $e=id=>document.getElementById(id);
+const MONTHS=['Sty','Lut','Mar','Kwi','Maj','Cze','Lip','Sie','Wrz','Paź','Lis','Gru'];
+const LVL_NAMES=['Jasny i zrozumiany','Częściowo zrozumiany','Słabo zrozumiany','Bardzo niejasny'];
+function esc(s){ return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function plural(n,one,few,many){ n=Math.abs(n); if(n===1) return one; const d=n%10,h=n%100; return (d>=2&&d<=4&&!(h>=12&&h<=14))?few:many; }
+const epicWord=n=>plural(n,'epik','epiki','epików');
+const storyWord=n=>plural(n,'historyjka','historyjki','historyjek');
+const dayWord=n=>plural(n,'dzień','dni','dni');
+const pctTxt=x=> x>=0.995 ? '>99%' : x<0.005 ? '<1%' : Math.round(x*100)+'%';  // symulacja nigdy nie daje pewności 0% ani 100%
+
+function eDefaults(){ return {
+  start:'2026-12-01', target:'2027-05-31', conf:85, len:14, tpMode:'data',
+  history:'3, 4, 5, 4, 2, 7, 4, 5', lookback:null, est:{min:2,mode:4,max:7},
+  focus:75, splitLo:1, splitHi:1, learnK:2, learnN:1,
+  // od marca wyższa przepustowość (po feriach i z lepszą znajomością domeny)
+  months:[1,1,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1.2,1],
+  levels:[{lo:1,hi:1.1},{lo:1,hi:1.3},{lo:1.1,hi:1.6},{lo:1.25,hi:2}],
+  epics:[
+    {name:'Epik 1',min:4,max:6,lvl:1},{name:'Epik 2',min:3,max:5,lvl:1},
+    {name:'Epik 3',min:3,max:4,lvl:2},{name:'Epik 4',min:3,max:5,lvl:2},
+    {name:'Epik 5',min:4,max:7,lvl:2},{name:'Epik 6',min:4,max:8,lvl:2}]
+};}
+let ES=eDefaults(), eLast=null, eTimer=null;
+
+/* ---------- formularz ---------- */
+function buildStatic(){
+  $e('eMonths').innerHTML=MONTHS.map((m,i)=>'<label id="eMl'+i+'">'+m+'<input type="number" id="eM'+i+'" min="0" max="5" step="0.05" aria-label="Mnożnik przepustowości: '+m+'"></label>').join('');
+  $e('eLevels').innerHTML=LVL_NAMES.map((n,i)=>'<tr><td>'+n+'</td><td><input type="number" id="eLvlLo'+i+'" min="0.5" max="5" step="0.05" aria-label="'+n+': min"></td><td><input type="number" id="eLvlHi'+i+'" min="0.5" max="5" step="0.05" aria-label="'+n+': max"></td></tr>').join('');
+}
+function writeForm(){
+  $e('eStart').value=ES.start; $e('eTarget').value=ES.target; $e('eConf').value=ES.conf;
+  document.querySelector('input[name=eSprintLen][value="'+ES.len+'"]').checked=true;
+  document.querySelector('input[name=eTpMode][value="'+ES.tpMode+'"]').checked=true;
+  $e('eHistory').value=ES.history; $e('eLookback').value=ES.lookback==null?'':ES.lookback; $e('eEstMin').value=ES.est.min; $e('eEstMode').value=ES.est.mode; $e('eEstMax').value=ES.est.max;
+  $e('eFocus').value=ES.focus; $e('eSplitLo').value=ES.splitLo; $e('eSplitHi').value=ES.splitHi;
+  $e('eLearnK').value=ES.learnK; $e('eLearnN').value=ES.learnN;
+  ES.months.forEach((v,i)=>$e('eM'+i).value=v);
+  ES.levels.forEach((l,i)=>{ $e('eLvlLo'+i).value=l.lo; $e('eLvlHi'+i).value=l.hi; });
+  toggleTpMode(); updateMonthStyles();
+}
+function toggleTpMode(){ const m=document.querySelector('input[name=eTpMode]:checked').value;
+  $e('ef-history').hidden=m!=='data'; $e('ef-est').hidden=m!=='estimate'; }
+function num(id){ const v=$e(id).value.trim().replace(',','.'); return v===''?NaN:Number(v); }
+function updateMonthStyles(){
+  const s=eIso($e('eStart').value), t=eIso($e('eTarget').value); const inRange=new Set();
+  if(!isNaN(s)&&!isNaN(t)&&t>=s){ let d=new Date(s), y=d.getUTCFullYear(), m=d.getUTCMonth(); const te=new Date(t);
+    while(y<te.getUTCFullYear()||(y===te.getUTCFullYear()&&m<=te.getUTCMonth())){ inRange.add(m); m++; if(m>11){m=0;y++;} if(inRange.size===12) break; } }
+  for(let i=0;i<12;i++){ const v=num('eM'+i), l=$e('eMl'+i);
+    l.classList.toggle('in-range',inRange.has(i)); l.classList.toggle('boost',v>1); l.classList.toggle('dip',v<1); }
+}
+
+function readAll(){
+  const errs=[], bad=new Set(), c={};
+  const fail=(id,msg)=>{ errs.push(msg); bad.add(id); };
+  c.startMs=eIso($e('eStart').value); if(isNaN(c.startMs)) fail('ef-start','Podaj poprawną datę rozpoczęcia.');
+  c.targetMs=eIso($e('eTarget').value);
+  if(isNaN(c.targetMs)) fail('ef-target','Podaj poprawną datę docelową.');
+  else if(!isNaN(c.startMs)&&c.targetMs<c.startMs) fail('ef-target','Data docelowa nie może być wcześniejsza niż data rozpoczęcia.');
+  const conf=num('eConf'); if(!Number.isInteger(conf)||conf<1||conf>99) fail('ef-conf','Wymagana pewność: liczba całkowita od 1 do 99.'); else c.conf=conf;
+  c.len=+document.querySelector('input[name=eSprintLen]:checked').value;
+  c.tpMode=document.querySelector('input[name=eTpMode]:checked').value;
+  if(c.tpMode==='data'){
+    const raw=$e('eHistory').value.split(',').map(x=>x.trim());
+    if(raw.length<1||raw.length>30||raw.some(x=>!/^\d+$/.test(x))) fail('ef-history','Historia przepustowości: od 1 do 30 nieujemnych liczb całkowitych oddzielonych przecinkami.');
+    else {
+      c.historyAll=raw.map(Number);
+      const lb=$e('eLookback').value.trim();
+      if(lb!==''&&!(/^\d+$/.test(lb)&&+lb>=1&&+lb<=30)) fail('ef-history','Ostatnie N sprintów: liczba od 1 do 30 albo puste pole.');
+      c.lookback=lb===''?null:+lb;
+      c.history=c.lookback?c.historyAll.slice(-c.lookback):c.historyAll.slice();
+    }
+  } else {
+    const a=num('eEstMin'),m=num('eEstMode'),b=num('eEstMax');
+    if([a,m,b].some(x=>isNaN(x)||x<0)||!(a<=m&&m<=b)) fail('ef-est','Szacunek przepustowości: liczby ≥ 0, min ≤ najbardziej prawdopodobna ≤ max.');
+    else c.est={min:a,mode:m,max:b};
+  }
+  const f=num('eFocus'); if(isNaN(f)||f<1||f>100) fail('ef-focus','Skupienie zespołu: od 1 do 100%.'); else c.focus=f/100;
+  const sl=num('eSplitLo'),sh=num('eSplitHi');
+  if(isNaN(sl)||isNaN(sh)||sl<0.1||sh>5||sl>sh) fail('ef-split','Współczynnik podziału: od 0,1 do 5, min ≤ max.'); else { c.splitLo=sl; c.splitHi=sh; }
+  const k=num('eLearnK'),n=num('eLearnN');
+  if(!Number.isInteger(k)||k<0||k>20||!Number.isInteger(n)||n<0||n>3) fail('ef-learn','Efekt uczenia się: liczba epików 0–20 i liczba poziomów 0–3 (liczby całkowite).');
+  else { c.learnK=k; c.learnN=n; }
+  c.months=[]; let mBad=false; for(let i=0;i<12;i++){ const v=num('eM'+i); if(isNaN(v)||v<0||v>5) mBad=true; c.months.push(v); }
+  if(mBad) fail('ef-months','Mnożniki miesięczne: liczby od 0 do 5.');
+  c.levels=[]; let lBad=false; for(let i=0;i<4;i++){ const lo=num('eLvlLo'+i),hi=num('eLvlHi'+i); if(isNaN(lo)||isNaN(hi)||lo<0.5||hi>5||lo>hi) lBad=true; c.levels.push({lo,hi}); }
+  if(lBad) fail('ef-levels','Poziomy znajomości: mnożniki od 0,5 do 5, min ≤ max.');
+  c.epics=[]; const badRows=[];
+  ES.epics.forEach((e,i)=>{ if(!(Number.isInteger(e.min)&&Number.isInteger(e.max)&&e.min>=0&&e.max<=999&&e.min<=e.max)) badRows.push(i);
+    c.epics.push({name:(e.name||'').trim()||('Epik '+(i+1)),min:e.min,max:e.max,lvl:e.lvl}); });
+  if(badRows.length) errs.push('Epiki: min i max to liczby całkowite 0–999, min ≤ max (wiersz '+badRows.map(i=>i+1).join(', ')+').');
+  return {ok:errs.length===0,c,errs,bad,badRows};
+}
+function markInvalid(r){
+  ['ef-start','ef-target','ef-conf','ef-history','ef-est','ef-focus','ef-split','ef-learn','ef-months','ef-levels']
+    .forEach(id=>$e(id).classList.toggle('invalid',r.bad.has(id)));
+  document.querySelectorAll('#eTbody tr[data-i]').forEach(tr=>{ const bad=r.badRows.includes(+tr.dataset.i);
+    tr.querySelectorAll('td.sz').forEach(td=>td.classList.toggle('invalid',bad)); });
+}
+
+/* ---------- tabela epików ---------- */
+function renderEpicRows(){
+  const n=ES.epics.length;
+  $e('eTbody').innerHTML=ES.epics.map((e,i)=>
+    '<tr data-i="'+i+'">'+
+      '<td class="num">'+(i+1)+'</td>'+
+      '<td><input data-f="name" maxlength="40" value="'+esc(e.name)+'" aria-label="Nazwa epiku '+(i+1)+'"></td>'+
+      '<td class="sz"><input type="number" data-f="min" min="0" max="999" step="1" value="'+(Number.isInteger(e.min)?e.min:'')+'" aria-label="Epik '+(i+1)+': minimalna liczba historyjek"></td>'+
+      '<td class="sz"><input type="number" data-f="max" min="0" max="999" step="1" value="'+(Number.isInteger(e.max)?e.max:'')+'" aria-label="Epik '+(i+1)+': maksymalna liczba historyjek"></td>'+
+      '<td><select data-f="lvl" aria-label="Epik '+(i+1)+': znajomość dziś">'+LVL_NAMES.map((nm,k)=>'<option value="'+k+'"'+(k===e.lvl?' selected':'')+'>'+nm+'</option>').join('')+'</select><div class="eff" data-r="eff"></div></td>'+
+      '<td class="num" data-r="date"></td><td data-r="status"></td><td class="num" data-r="p"></td>'+
+      '<td class="acts">'+
+        '<button type="button" data-a="up" aria-label="Przesuń epik '+(i+1)+' wyżej"'+(i===0?' disabled':'')+'>↑</button>'+
+        '<button type="button" data-a="down" aria-label="Przesuń epik '+(i+1)+' niżej"'+(i===n-1?' disabled':'')+'>↓</button>'+
+        '<button type="button" data-a="del" aria-label="Usuń epik '+(i+1)+'"'+(n<=1?' disabled':'')+'>✕</button>'+
+      '</td></tr>').join('');
+  $e('eAdd').disabled=n>=20;
+}
+function onTableEdit(e){
+  const tr=e.target.closest('tr[data-i]'), f=e.target.dataset.f; if(!tr||!f) return;
+  const ep=ES.epics[+tr.dataset.i];
+  if(f==='name') ep.name=e.target.value;
+  else if(f==='lvl') ep.lvl=+e.target.value;
+  else { const v=e.target.value.trim(); ep[f]=/^\d+$/.test(v)?parseInt(v,10):NaN; }
+  eSchedule();
+}
+function onTableClick(e){
+  const b=e.target.closest('button[data-a]'); if(!b) return;
+  const i=+b.closest('tr').dataset.i, a=b.dataset.a, L=ES.epics; let focusI=i;
+  if(a==='up'&&i>0){ [L[i-1],L[i]]=[L[i],L[i-1]]; focusI=i-1; }
+  else if(a==='down'&&i<L.length-1){ [L[i+1],L[i]]=[L[i],L[i+1]]; focusI=i+1; }
+  else if(a==='del'&&L.length>1){ L.splice(i,1); focusI=Math.min(i,L.length-1); }
+  else return;
+  renderEpicRows(); eRecalc();
+  const btn=document.querySelector('#eTbody tr[data-i="'+focusI+'"] button[data-a="'+a+'"]');
+  (btn&&!btn.disabled?btn:document.querySelector('#eTbody tr[data-i="'+focusI+'"] input')).focus();
+}
+
+/* ---------- obliczenia ---------- */
+function eSchedule(){ clearTimeout(eTimer); eTimer=setTimeout(eRecalc,220); }
+function updateDqEpics(){
+  const el=$e('dqEpics'), DQ=window.MC_DQ;
+  const raw=$e('eHistory').value.split(',').map(x=>x.trim());
+  if(!raw.length||raw.some(x=>!/^\d+$/.test(x))){ DQ.render(el,null); return; }
+  const all=raw.map(Number), lb=$e('eLookback').value.trim(), n=/^\d+$/.test(lb)&&+lb>=1?+lb:null;
+  DQ.render(el,n?all.slice(-n):all,all.length);
+}
+function eRecalc(){
+  clearTimeout(eTimer);
+  updateMonthStyles(); updateDqEpics();
+  const r=readAll(); markInvalid(r);
+  const err=$e('eErr'), info=$e('eInfo'), zone=$e('eZone');
+  if(!r.ok){ err.innerHTML=r.errs.map(esc).join('<br>'); err.classList.add('show'); zone.classList.add('stale'); return; }
+  err.classList.remove('show'); zone.classList.remove('stale');
+  const c=r.c;
+  const meanTp=c.tpMode==='data' ? c.history.reduce((a,b)=>a+b,0)/c.history.length : (c.est.min+c.est.mode+c.est.max)/3;
+  if(meanTp<=0){
+    info.textContent='Przepustowość wynosi 0 — nie da się prognozować dat ukończenia epików. Wprowadź dane z co najmniej jednym niezerowym sprintem.';
+    info.classList.add('show'); eLast=null; eRenderEmpty(c); return;
+  }
+  const mult=sprintMultipliers(c.startMs,c.len,c.months,E_MAXS);
+  const effMain=effLevels(c.epics,c.learnK,c.learnN);
+  const base={epics:c.epics,levels:c.levels,splitLo:c.splitLo,splitHi:c.splitHi,tpMode:c.tpMode,
+              history:c.history,est:c.est,focus:c.focus,mult:mult,eff:effMain};
+  const main=analyzeEpics(simulateEpics(base),c);
+  const impacts=[];
+  const effNone=c.epics.map(e=>e.lvl);
+  if(effNone.some((l,i)=>l!==effMain[i])) impacts.push({key:'learn',a:analyzeEpics(simulateEpics(Object.assign({},base,{eff:effNone})),c)});
+  if(c.months.some(m=>m!==1)) impacts.push({key:'months',a:analyzeEpics(simulateEpics(Object.assign({},base,{mult:sprintMultipliers(c.startMs,c.len,new Array(12).fill(1),E_MAXS)})),c)});
+  if(c.focus<1) impacts.push({key:'focus',a:analyzeEpics(simulateEpics(Object.assign({},base,{focus:1})),c)});
+  if(main.capHit){ info.textContent='Część symulacji nie ukończyła wszystkich epików w limicie '+E_MAXS+' sprintów (bardzo niska przepustowość). Takie epiki oznaczono jako „poza horyzontem”.'; info.classList.add('show'); }
+  else info.classList.remove('show');
+  eLast={c,main,impacts,mult,meanTp,effMain};
+  eRender();
+}
+
+/* ---------- renderowanie ---------- */
+function stChip(s,short){
+  const m={ok:['st-ok','✓','W terminie','W terminie'],warn:['st-warn','!','Do 1 sprintu po celu','≤ 1 sprint po'],miss:['st-miss','✗','Ponad 1 sprint po celu','> 1 sprint po']}[s];
+  return '<span class="st '+m[0]+'" title="'+m[2]+'"><i aria-hidden="true">'+m[1]+'</i>'+(short?m[3]:m[2])+'</span>';
+}
+function card(k,label,big,sub){  // k: ok | warn | bad | accent | muted (klasy CSS zgodne z motywem)
+  return '<div class="card k-'+k+'"><div class="plabel">'+label+'</div><div class="big">'+big+'</div><div class="sub">'+sub+'</div></div>';
+}
+function eRenderEmpty(c){
+  $e('eKpis').innerHTML=''; $e('eImpact').innerHTML='';
+  document.querySelectorAll('#eTbody td[data-r]').forEach(td=>td.textContent='—');
+  const old=document.querySelector('#eTbody tr.cutline'); if(old) old.remove();
+  ['eTimeline','eProbChart','eCountChart','eTpChart'].forEach(id=>{ const g=setup(id,120); msg(g,'Brak prognozy — przepustowość wynosi 0'); });
+  $e('eCountLegend').innerHTML=''; $e('eTpLegend').innerHTML='';
+  window.MC_UI.headline($e('eHeadline'),{title:'Prognoza epików',status:'bad',label:'Brak prognozy',
+    main:'Przepustowość wynosi 0 — nie da się wskazać dat ukończenia epików.',subs:[],assumptions:['Wprowadź historię z co najmniej jednym niezerowym sprintem albo szacunek większy od zera.']});
+}
+/* poziom ryzyka wg progów skilla scrum-master (szansa ukończenia do daty docelowej) */
+function riskOf(p){ return p>=0.85?{k:'ok',t:'ryzyko niskie'}:p>=0.70?{k:'warn',t:'ryzyko umiarkowane'}:p>=0.50?{k:'warn',t:'ryzyko wysokie'}:{k:'miss',t:'ryzyko bardzo wysokie'}; }
+function monthRuns(months){
+  const runs=[]; let i=0;
+  while(i<12){ if(months[i]===1){ i++; continue; } let j=i; while(j+1<12&&months[j+1]===months[i]) j++;
+    runs.push((i===j?MONTHS[i]:MONTHS[i]+'–'+MONTHS[j])+' ×'+String(months[i]).replace('.',',')); i=j+1; }
+  return runs;
+}
+function renderEpicHeadline(){
+  const U=window.MC_UI, DQ=window.MC_DQ, {c,main}=eLast, E=c.epics.length, p=c.conf, last=main.epics[E-1], tgt=eFmt(c.targetMs);
+  const status=last.status==='ok'?'ok':last.status==='warn'?'warn':'bad';
+  const mainTxt = last.dateMs===null
+    ? 'Z <b>'+p+'% pewnością</b> nie da się wskazać daty ukończenia wszystkich epików w horyzoncie prognozy.'
+    : 'Z <b>'+p+'% pewnością</b> '+(E===1?'epik będzie gotowy':'wszystkie epiki ('+E+') będą gotowe')+' do <b>'+eFmt(last.dateMs)+'</b> — '+U.relDays(Math.round((last.dateMs-c.targetMs)/E_DAY))+' ('+tgt+').';
+  const subs=[];
+  if(last.d50!==null&&last.d95!==null) subs.push('Zakres przy pewności 50–95%: '+eFmt(last.d50)+' – '+eFmt(last.d95)+'.');
+  if(main.cut===E) subs.push('Do '+tgt+' zmieszczą się wszystkie epiki.');
+  else if(main.cut>0) subs.push('Do '+tgt+' z '+p+'% pewnością dostarczymy <b>'+main.cut+' z '+E+'</b> epików. Zagrożone: '+c.epics.slice(main.cut).map(e=>'<b>'+esc(e.name)+'</b>').join(', ')+' — rozważ zmianę zakresu, kolejności albo terminu.');
+  else subs.push('Przy tej pewności żaden epik nie mieści się w terminie '+tgt+'.');
+  const as=[];
+  if(c.tpMode==='data'){ const a=DQ.analyze(c.history);
+    as.push('Przepustowość z historii: '+c.history.length+' '+plural(c.history.length,'sprint','sprinty','sprintów')+(c.lookback&&c.historyAll.length>c.history.length?' (ostatnie z '+c.historyAll.length+')':'')+
+      ', średnio '+U.num(a.mean,1)+' historyjki na sprint, zmienność (CV) '+(a.cv!=null?U.num(a.cv*100,0)+'%':'—')+'.'); }
+  else as.push('Przepustowość szacowana: min '+U.num(c.est.min)+', najbardziej prawdopodobna '+U.num(c.est.mode)+', max '+U.num(c.est.max)+' historyjek na sprint (rozkład trójkątny).');
+  as.push('Skupienie zespołu na tych epikach: '+Math.round(c.focus*100)+'% czasu.');
+  const runs=monthRuns(c.months); as.push(runs.length?'Korekta tempa w miesiącach: '+runs.join(', ')+'.':'Bez korekty miesięcznej tempa.');
+  as.push(c.learnN>0&&c.learnK<E?'Uczenie się: po ukończeniu '+c.learnK+' '+plural(c.learnK,'epiku','epików','epików')+' znajomość kolejnych rośnie o '+c.learnN+' '+plural(c.learnN,'poziom','poziomy','poziomów')+'.':'Bez efektu uczenia się.');
+  as.push('Rozmiar epiku: losowo z przedziału min–max × współczynnik podziału '+U.num(c.splitLo,2)+'–'+U.num(c.splitHi,2)+' × mnożnik niepewności zależny od znajomości (założenie edytowalne).');
+  as.push('Epiki realizowane po kolei; start '+eFmt(c.startMs)+', sprint '+(c.len===7?'1-tygodniowy':'2-tygodniowy')+'; 20 000 symulacji ze stałym ziarnem.');
+  U.headline($e('eHeadline'),{title:'Prognoza epików',status,main:mainTxt,subs,assumptions:as});
+}
+function eRender(){
+  const L=eLast; if(!L) return; const {c,main,impacts,effMain}=L; const E=c.epics.length, p=c.conf;
+  const col=eCols(); const tgt=eFmt(c.targetMs);
+  $e('eZoneSub').innerHTML='Start <b>'+eFmt(c.startMs)+'</b> · data docelowa <b>'+tgt+'</b> · pewność <b>'+p+'%</b> · '+E+' '+epicWord(E)+' realizowanych po kolei.';
+
+  // KPI
+  const last=main.epics[E-1];
+  const sumMin=c.epics.reduce((a,e)=>a+e.min,0), sumMax=c.epics.reduce((a,e)=>a+e.max,0);
+  const cutCol= main.cut===E?col.ok: main.cut>0?col.warn:col.miss;
+  const pAll=last.pByTarget, pCol= pAll>=p/100?col.ok: pAll>=0.5?col.warn:col.miss;
+  $e('eKpis').innerHTML=
+    card(last.status==='ok'?'ok':last.status==='warn'?'warn':'bad','Wszystkie epiki gotowe ('+p+'%)', last.dateMs!==null?eFmt(last.dateMs):'Poza horyzontem',
+      stChip(last.status)+(last.sprint!==null?' · sprint '+last.sprint:''))+
+    card(main.cut===E?'ok':main.cut>0?'warn':'bad','Do '+tgt+' ('+p+'%)', main.cut+' z '+E+' '+epicWord(E),
+      main.cut===E?'Wszystkie epiki mieszczą się w terminie':main.cut>0?'Linia odcięcia po: <b>'+esc(c.epics[main.cut-1].name)+'</b>':'Żaden epik nie mieści się w terminie przy tej pewności')+
+    card(pAll>=p/100?'ok':pAll>=0.5?'warn':'bad','Szansa na komplet do '+tgt, pctTxt(pAll),'Odsetek symulacji, w których ukończono wszystkie epiki')+
+    card('accent','Łączny zakres po niepewności','ok. '+main.totalMedian+' '+storyWord(main.totalMedian),
+      p+'%: ≤ '+main.totalConf+' · szacunek wejściowy '+sumMin+'–'+sumMax);
+
+  // wpływ założeń
+  const label={learn:'Efekt uczenia się',months:'Korekta miesięczna przepustowości',focus:'Skupienie zespołu '+Math.round(c.focus*100)+'%'};
+  const altTxt={learn:'Bez efektu uczenia: ',months:'Bez korekty miesięcznej: ',focus:'Przy 100% skupienia: '};
+  $e('eImpact').innerHTML = impacts.length ? impacts.map(im=>{
+    const alt=im.a.epics[E-1].dateMs, cur=last.dateMs;
+    if(alt===null||cur===null) return card('muted',label[im.key],'—',altTxt[im.key]+(alt===null?'poza horyzontem':eFmt(alt)));
+    const d=Math.round((cur-alt)/E_DAY);
+    const color=d<0?'ok':d>0?'warn':'muted';
+    return card(color,label[im.key],(d>0?'+':d<0?'−':'')+Math.abs(d)+' '+dayWord(Math.abs(d)),altTxt[im.key]+eFmt(alt));
+  }).join('') : '<p class="hint" style="margin:6px 0 0">Brak założeń modyfikujących prognozę (uczenie wyłączone, mnożniki 1,0, skupienie 100%).</p>';
+
+  // tabela: wyniki
+  $e('eThDate').textContent='Prognoza ('+p+'%)'; $e('eThP').textContent='Szansa do '+tgt;
+  document.querySelectorAll('#eTbody tr[data-i]').forEach(tr=>{
+    const i=+tr.dataset.i, r=main.epics[i]; if(!r) return;
+    const cell=k=>tr.querySelector('[data-r="'+k+'"]');
+    const changed=effMain[i]!==c.epics[i].lvl;
+    cell('eff').innerHTML=changed?'<span class="eff-up">↑ przy realizacji: '+LVL_NAMES[effMain[i]].toLowerCase()+'</span>':'';
+    cell('date').innerHTML=r.dateMs!==null?eFmt(r.dateMs)+'<div class="cell-sub">sprint '+r.sprint+'</div>':'poza horyzontem';
+    cell('status').innerHTML=stChip(r.status,true);
+    const rk=riskOf(r.pByTarget);
+    cell('p').innerHTML=pctTxt(r.pByTarget)+'<div class="cell-sub">'+rk.t+'</div>';
+  });
+  const old=document.querySelector('#eTbody tr.cutline'); if(old) old.remove();
+  if(main.cut>0&&main.cut<E){
+    const after=document.querySelector('#eTbody tr[data-i="'+(main.cut-1)+'"]');
+    const tr=document.createElement('tr'); tr.className='cutline';
+    tr.innerHTML='<td colspan="9">✂ LINIA ODCIĘCIA — epiki poniżej nie mieszczą się w terminie '+tgt+' przy pewności '+p+'%</td>';
+    after.after(tr);
+  }
+  $e('eCountTitle').textContent='Ile epików dostarczymy do '+tgt+'?';
+  $e('eProbTitle').textContent='Szansa ukończenia każdego epiku do '+tgt;
+  renderEpicHeadline();
+  eDrawAll();
+}
+
+/* ---------- wykresy (Canvas) ---------- */
+function eCols(){ const cs=getComputedStyle(document.documentElement); const g=n=>cs.getPropertyValue(n).trim();
+  return {text:g('--text'),muted:g('--muted'),grid:g('--grid'),accent:g('--accent'),ok:g('--st-ok'),warn:g('--st-warn'),miss:g('--st-bad'),stripe:g('--surface-2')}; }
+function stCol(col,s){ return s==='ok'?col.ok:s==='warn'?col.warn:col.miss; }
+function setup(id,h){ const cv=$e(id), dpr=window.devicePixelRatio||1, w=cv.clientWidth||760;
+  cv.width=w*dpr; cv.height=h*dpr; cv.style.height=h+'px'; const ctx=cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h); return {ctx,w,h}; }
+function msg(g,t){ const col=eCols(); g.ctx.fillStyle=col.muted; g.ctx.font='14px system-ui'; g.ctx.textAlign='center'; g.ctx.textBaseline='middle'; g.ctx.fillText(t,g.w/2,g.h/2); }
+function clip(ctx,t,maxW){ if(ctx.measureText(t).width<=maxW) return t; while(t.length>1&&ctx.measureText(t+'…').width>maxW) t=t.slice(0,-1); return t+'…'; }
+function dashV(ctx,x,y1,y2,color,w){ ctx.strokeStyle=color; ctx.lineWidth=w||2; ctx.setLineDash([6,4]); ctx.beginPath(); ctx.moveTo(x,y1); ctx.lineTo(x,y2); ctx.stroke(); ctx.setLineDash([]); }
+
+function eDrawAll(){ if(!eLast) return; drawTimeline(); drawProb(); drawCount(); drawTp(); }
+
+function drawTimeline(){
+  const {c,main}=eLast, E=c.epics.length, col=eCols();
+  const rowH=36, padT=34, padB=34, padR=92;
+  const g=setup('eTimeline',padT+padB+rowH*E), ctx=g.ctx;
+  const padL=Math.min(150,Math.max(90,g.w*0.18)), W=g.w-padL-padR;
+  let xmax=c.targetMs; main.epics.forEach(r=>[r.d95,r.dateMs].forEach(d=>{ if(d!==null&&d>xmax) xmax=d; }));
+  const xmin=c.startMs, span=Math.max(xmax-xmin,30*E_DAY); xmax=xmin+span*1.04;
+  const X=ms=>padL+(ms-xmin)/(xmax-xmin)*W, bottom=padT+E*rowH;
+  // pasy wierszy
+  for(let i=0;i<E;i++){ if(i%2===0){ ctx.fillStyle=col.stripe; ctx.fillRect(padL,padT+i*rowH,W,rowH); } }
+  // siatka miesięcy
+  ctx.font='11px system-ui'; ctx.textAlign='center'; ctx.textBaseline='top';
+  const step=(W/(span/(30.4*E_DAY)))<46?2:1;
+  let d0=new Date(xmin), y=d0.getUTCFullYear(), m=d0.getUTCMonth(), k=0;
+  for(let guard=0;guard<400;guard++){ const ms=Date.UTC(y,m,1); if(ms>xmax) break;
+    if(ms>=xmin){ const x=X(ms); ctx.strokeStyle=col.grid; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,bottom); ctx.stroke();
+      if(k%step===0){ ctx.fillStyle=col.muted; ctx.fillText(MONTHS[m]+' '+String(y).slice(2),x,bottom+8); } k++; }
+    m++; if(m>11){ m=0; y++; } }
+  // wiersze epików
+  main.epics.forEach((r,i)=>{
+    const yc=padT+i*rowH+rowH/2, sc=stCol(col,r.status);
+    ctx.fillStyle=col.text; ctx.font='600 12px system-ui'; ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillText(clip(ctx,c.epics[i].name,padL-14),padL-10,yc);
+    if(r.d50!==null&&r.d95!==null){ const x1=X(r.d50), x2=Math.max(X(r.d95),x1+4);
+      ctx.globalAlpha=.28; ctx.fillStyle=sc; ctx.fillRect(x1,yc-7,x2-x1,14); ctx.globalAlpha=1;
+      ctx.strokeStyle=sc; ctx.lineWidth=1; ctx.strokeRect(x1+.5,yc-6.5,x2-x1-1,13); }
+    if(r.dateMs!==null){ const xp=X(r.dateMs);
+      ctx.fillStyle=sc; ctx.beginPath(); ctx.moveTo(xp,yc-8); ctx.lineTo(xp+8,yc); ctx.lineTo(xp,yc+8); ctx.lineTo(xp-8,yc); ctx.closePath(); ctx.fill();
+      const xr=Math.max(xp+12,(r.d95!==null?X(r.d95):xp)+6);
+      ctx.fillStyle=col.text; ctx.font='11px system-ui'; ctx.textAlign='left'; ctx.fillText(eFmt(r.dateMs),xr,yc); }
+    else { ctx.fillStyle=col.miss; ctx.font='11px system-ui'; ctx.textAlign='left'; ctx.fillText('poza horyzontem',padL+6,yc); }
+  });
+  // linia odcięcia
+  if(main.cut>0&&main.cut<E){ const yc=padT+main.cut*rowH; ctx.strokeStyle=col.miss; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(8,yc); ctx.lineTo(g.w-8,yc); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=col.miss; ctx.font='bold 10px system-ui'; ctx.textAlign='left'; ctx.textBaseline='bottom'; ctx.fillText('✂ linia odcięcia',8,yc-2); }
+  // data docelowa
+  const xt=X(c.targetMs); dashV(ctx,xt,padT-6,bottom,col.miss,2);
+  ctx.fillStyle=col.miss; ctx.font='bold 11px system-ui'; ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText('Cel '+eFmt(c.targetMs),xt,padT-9);
+}
+
+function drawProb(){
+  const {c,main}=eLast, E=c.epics.length, col=eCols(), p=c.conf/100;
+  const rowH=32, padT=30, padB=30, padR=150;
+  const g=setup('eProbChart',padT+padB+rowH*E), ctx=g.ctx;
+  const padL=Math.min(150,Math.max(90,g.w*0.18)), W=g.w-padL-padR, X=v=>padL+v*W, bottom=padT+E*rowH;
+  ctx.font='11px system-ui'; ctx.textAlign='center'; ctx.textBaseline='top';
+  for(let i=0;i<=4;i++){ const x=X(i/4); ctx.strokeStyle=col.grid; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,bottom); ctx.stroke(); ctx.fillStyle=col.muted; ctx.fillText((i*25)+'%',x,bottom+8); }
+  main.epics.forEach((r,i)=>{
+    const yc=padT+i*rowH+rowH/2, v=r.pByTarget, rk=riskOf(v), color=col[rk.k];
+    ctx.fillStyle=col.text; ctx.font='600 12px system-ui'; ctx.textAlign='right'; ctx.textBaseline='middle'; ctx.fillText(clip(ctx,c.epics[i].name,padL-14),padL-10,yc);
+    ctx.fillStyle=color; ctx.fillRect(padL,yc-8,Math.max(2,v*W),16);
+    ctx.fillStyle=col.text; ctx.font='bold 11px system-ui'; ctx.textAlign='left'; ctx.fillText(pctTxt(v),X(v)+6,yc);
+    const wPct=ctx.measureText(pctTxt(v)).width; ctx.font='11px system-ui'; ctx.fillStyle=col.muted; ctx.fillText('· '+rk.t.replace('ryzyko ',''),X(v)+10+wPct,yc);
+  });
+  dashV(ctx,X(p),padT-6,bottom,col.text,1.5);
+  ctx.fillStyle=col.text; ctx.font='bold 11px system-ui'; ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText('wymagane '+c.conf+'%',X(p),padT-8);
+}
+
+function drawCount(){
+  const {c,main}=eLast, E=c.epics.length, col=eCols(), N=main.N, X0=main.countAtConf;
+  const g=setup('eCountChart',300), ctx=g.ctx, padL=46,padR=16,padT=26,padB=40, W=g.w-padL-padR, Hh=g.h-padT-padB;
+  const pct=Array.from(main.countHist,v=>v/N); const maxP=Math.max(...pct,0.01);
+  const bw=W/(E+1), Y=f=>padT+(1-f/maxP)*Hh;
+  ctx.font='11px system-ui'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const f=maxP*i/4, y=Y(f); ctx.strokeStyle=col.grid; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.fillStyle=col.muted; ctx.fillText((f*100).toFixed(0)+'%',padL-8,y); }
+  let mass=0;
+  for(let k=0;k<=E;k++){ const x=padL+k*bw, y=Y(pct[k]); const color=k>=X0?col.ok:col.muted; if(k>=X0) mass+=pct[k];
+    ctx.globalAlpha=k>=X0?.85:.45; ctx.fillStyle=color; ctx.fillRect(x+bw*.15,y,bw*.7,padT+Hh-y); ctx.globalAlpha=1;
+    ctx.fillStyle=col.text; ctx.font='bold 11px system-ui'; ctx.textAlign='center'; ctx.textBaseline='bottom'; if(pct[k]>0) ctx.fillText(pctTxt(pct[k]),x+bw/2,y-3);
+    ctx.fillStyle=col.muted; ctx.font='11px system-ui'; ctx.textBaseline='top'; ctx.fillText(String(k),x+bw/2,padT+Hh+8); }
+  ctx.fillStyle=col.muted; ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillText('liczba ukończonych epików',padL+W/2,padT+Hh+24);
+  $e('eCountLegend').innerHTML='<span><i style="background:'+col.ok+'"></i>Co najmniej '+X0+' '+epicWord(X0)+' — łącznie '+pctTxt(mass)+' symulacji (wymagane '+c.conf+'%)</span>';
+}
+
+function drawTp(){
+  const {c,main,mult,meanTp}=eLast, col=eCols();
+  const lastS=main.epics[main.epics.length-1].sprint;
+  const S=Math.min(60,Math.max(main.K,lastS||main.K,1)+1);
+  const g=setup('eTpChart',280), ctx=g.ctx, padL=46,padR=16,padT=22,padB=40, W=g.w-padL-padR, Hh=g.h-padT-padB;
+  const baseV=meanTp*c.focus; const vals=[]; for(let s=1;s<=S;s++) vals.push(baseV*mult[s]);
+  const maxV=Math.max(...vals,baseV,meanTp)*1.15||1; const bw=W/S, Y=v=>padT+(1-v/maxV)*Hh;
+  ctx.font='11px system-ui'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const v=maxV*i/4, y=Y(v); ctx.strokeStyle=col.grid; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke(); ctx.fillStyle=col.muted; ctx.fillText(v.toFixed(1),padL-8,y); }
+  vals.forEach((v,i)=>{ const s=i+1, m=mult[s], color=m>1.001?col.ok:m<0.999?col.warn:col.accent;
+    ctx.globalAlpha=.7; ctx.fillStyle=color; ctx.fillRect(padL+i*bw+bw*.12,Y(v),bw*.76,padT+Hh-Y(v)); ctx.globalAlpha=1; });
+  // poziom bez korekty miesięcznej oraz średnia historyczna
+  ctx.strokeStyle=col.text; ctx.lineWidth=1.5; ctx.setLineDash([5,4]); ctx.beginPath(); ctx.moveTo(padL,Y(baseV)); ctx.lineTo(padL+W,Y(baseV)); ctx.stroke();
+  ctx.strokeStyle=col.muted; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(padL,Y(meanTp)); ctx.lineTo(padL+W,Y(meanTp)); ctx.stroke(); ctx.setLineDash([]);
+  // etykiety osi X (daty końca sprintów)
+  const every=Math.ceil(S/8); ctx.fillStyle=col.muted; ctx.textAlign='center'; ctx.textBaseline='top';
+  for(let s=1;s<=S;s+=every) ctx.fillText(eFmt(eSprintEnd(c.startMs,s,c.len)).slice(0,5),padL+(s-1)*bw+bw/2,padT+Hh+8);
+  ctx.fillText('koniec sprintu',padL+W/2,padT+Hh+24);
+  if(main.K>0&&main.K<S){ const x=padL+main.K*bw; dashV(ctx,x,padT-4,padT+Hh,col.miss,2);
+    ctx.fillStyle=col.miss; ctx.font='bold 11px system-ui'; ctx.textBaseline='bottom'; ctx.fillText('Cel',x,padT-6); }
+  $e('eTpLegend').innerHTML=
+    '<span><i style="background:'+col.ok+'"></i>Mnożnik &gt; 1 (szybciej)</span>'+
+    '<span><i style="background:'+col.accent+'"></i>Mnożnik 1,0</span>'+
+    '<span><i style="background:'+col.warn+'"></i>Mnożnik &lt; 1 (wolniej)</span>'+
+    '<span><i style="background:'+col.text+'"></i>Średnia × skupienie: '+baseV.toFixed(1).replace('.',',')+'</span>'+
+    '<span><i style="background:'+col.muted+'"></i>Średnia historyczna: '+meanTp.toFixed(1).replace('.',',')+'</span>';
+}
+
+/* ---------- zakładki ---------- */
+function initTabs(){
+  const tabs=Array.from(document.querySelectorAll('.tab'));
+  const fromHash=()=>location.hash==='#epiki'?'epics':'backlog';
+  function show(id,updateHash){
+    tabs.forEach(t=>{ const on=t.dataset.tab===id; t.setAttribute('aria-selected',on?'true':'false'); t.tabIndex=on?0:-1; $e('tab-'+t.dataset.tab).hidden=!on; });
+    // uwaga: „#backlog” kolidowałby z id pola formularza, dlatego zakładka 1 nie ma kotwicy
+    if(updateHash){ try{ history.replaceState(null,'',id==='epics'?'#epiki':location.pathname+location.search); }catch(e){} }
+    document.dispatchEvent(new CustomEvent('mc:tabchange',{detail:id}));
+  }
+  tabs.forEach((t,i)=>{
+    t.addEventListener('click',()=>show(t.dataset.tab,true));
+    t.addEventListener('keydown',e=>{ if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft') return; e.preventDefault();
+      const n=tabs[(i+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length]; n.focus(); show(n.dataset.tab,true); });
+  });
+  window.addEventListener('hashchange',()=>show(fromHash(),false));
+  show(fromHash(),false);
+}
+
+function eInit(){
+  buildStatic(); writeForm(); renderEpicRows();
+  const form=$e('eForm');
+  form.addEventListener('submit',e=>e.preventDefault());
+  form.addEventListener('input',e=>{ if(e.target.name==='eTpMode') toggleTpMode(); updateMonthStyles(); eSchedule(); });
+  form.addEventListener('change',e=>{ if(e.target.name==='eTpMode') toggleTpMode(); eSchedule(); });
+  $e('eReset').addEventListener('click',()=>{ ES=eDefaults(); writeForm(); renderEpicRows(); eRecalc(); });
+  $e('eAdd').addEventListener('click',()=>{ if(ES.epics.length>=20) return; const n=ES.epics.length+1;
+    ES.epics.push({name:'Epik '+n,min:3,max:5,lvl:2}); renderEpicRows(); eRecalc();
+    const inp=document.querySelector('#eTbody tr[data-i="'+(n-1)+'"] input'); if(inp) inp.focus(); });
+  const tb=$e('eTbody'); tb.addEventListener('input',onTableEdit); tb.addEventListener('change',onTableEdit); tb.addEventListener('click',onTableClick);
+  document.addEventListener('mc:themechange',eDrawAll);
+  document.addEventListener('mc:tabchange',e=>{ if(e.detail==='epics') requestAnimationFrame(eDrawAll); });
+  let rT; window.addEventListener('resize',()=>{ clearTimeout(rT); rT=setTimeout(()=>{ if(!$e('tab-epics').hidden) eDrawAll(); },120); });
+  eRecalc();
+  initTabs();
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',eInit); else eInit();
+/* ---- stan zakładki dla zapisu scenariuszy (Supabase) ---- */
+function epicSnapshot(){
+  const n=id=>{ const v=num(id); return isNaN(v)?null:v; };
+  return {v:1, start:$e('eStart').value, target:$e('eTarget').value, conf:n('eConf'),
+    len:+document.querySelector('input[name=eSprintLen]:checked').value,
+    tpMode:document.querySelector('input[name=eTpMode]:checked').value,
+    history:$e('eHistory').value.trim(), lookback:n('eLookback'), est:{min:n('eEstMin'),mode:n('eEstMode'),max:n('eEstMax')},
+    focus:n('eFocus'), splitLo:n('eSplitLo'), splitHi:n('eSplitHi'), learnK:n('eLearnK'), learnN:n('eLearnN'),
+    months:MONTHS.map((_,i)=>n('eM'+i)), levels:LVL_NAMES.map((_,i)=>({lo:n('eLvlLo'+i),hi:n('eLvlHi'+i)})),
+    epics:ES.epics.map(e=>({name:e.name,min:Number.isInteger(e.min)?e.min:null,max:Number.isInteger(e.max)?e.max:null,lvl:e.lvl}))};
+}
+function epicSanitize(d){
+  const D=eDefaults(); if(!d||typeof d!=='object') return D;
+  const str=(v,f)=>typeof v==='string'?v:f, nm=(v,f)=>(typeof v==='number'&&isFinite(v))?v:f, est=d.est||{};
+  return {start:str(d.start,D.start), target:str(d.target,D.target), conf:nm(d.conf,D.conf), len:d.len===7?7:14,
+    tpMode:d.tpMode==='estimate'?'estimate':'data', history:str(d.history,D.history),
+    lookback:(Number.isInteger(d.lookback)&&d.lookback>=1&&d.lookback<=30)?d.lookback:null,
+    est:{min:nm(est.min,D.est.min),mode:nm(est.mode,D.est.mode),max:nm(est.max,D.est.max)},
+    focus:nm(d.focus,D.focus), splitLo:nm(d.splitLo,D.splitLo), splitHi:nm(d.splitHi,D.splitHi),
+    learnK:nm(d.learnK,D.learnK), learnN:nm(d.learnN,D.learnN),
+    months:Array.isArray(d.months)&&d.months.length===12?d.months.map((v,i)=>nm(v,D.months[i])):D.months,
+    levels:Array.isArray(d.levels)&&d.levels.length===4?d.levels.map((l,i)=>({lo:nm(l&&l.lo,D.levels[i].lo),hi:nm(l&&l.hi,D.levels[i].hi)})):D.levels,
+    epics:Array.isArray(d.epics)&&d.epics.length?d.epics.slice(0,20).map((e,i)=>({
+      name:str(e&&e.name,'Epik '+(i+1)).slice(0,40),
+      min:Number.isInteger(e&&e.min)?e.min:NaN, max:Number.isInteger(e&&e.max)?e.max:NaN,
+      lvl:[0,1,2,3].includes(e&&e.lvl)?e.lvl:1})):D.epics};
+}
+function epicApply(d){ ES=epicSanitize(d); writeForm(); renderEpicRows(); eRecalc(); return true; }
+window.MC_STATE=window.MC_STATE||{};
+window.MC_STATE.epics={snapshot:epicSnapshot,validate:()=>readAll().ok,apply:epicApply,
+  summary:()=>$e('eHeadline')._short||''};
+
+window.__EPIC__={simulateEpics,analyzeEpics,sprintMultipliers,effLevels,eDefaults};
+})();
+</script>
+
+<!-- ======================= WSPÓLNE SCENARIUSZE (Supabase) ======================= -->
+<dialog id="scDialog" class="sc-dialog" aria-labelledby="scTitle">
+  <div class="sc-head">
+    <h2 id="scTitle">Scenariusze prognoz</h2>
+    <span class="sc-kind" id="scKind"></span>
+    <button type="button" class="sc-x" id="scClose" aria-label="Zamknij">✕</button>
+  </div>
+  <div class="sc-body">
+    <div class="banner banner-err" id="scErr" role="alert"></div>
+
+    <section id="scSetup" class="sc-setup" hidden>
+      <p><b>Dashboard nie jest jeszcze połączony z bazą danych.</b> Prognozy działają normalnie, ale scenariuszy nie można zapisać ani udostępnić.</p>
+      <p class="hint">Konfiguracja dla administratora:</p>
+      <ol>
+        <li>Utwórz projekt w Supabase (supabase.com, plan darmowy wystarczy).</li>
+        <li>W <i>SQL Editor</i> uruchom plik <code>supabase/schema.sql</code> z repozytorium.</li>
+        <li>W <i>Authentication → Users</i> utwórz konto wspólne <code>zespol@example.com</code> z hasłem zespołu.</li>
+        <li>Wpisz <i>Project URL</i> i klucz <i>anon</i> w stałych <code>SUPABASE_URL</code> i <code>SUPABASE_ANON_KEY</code> w pliku <code>index.html</code>.</li>
+      </ol>
+    </section>
+
+    <p id="scConnecting" class="hint" hidden>Łączenie z bazą danych…</p>
+
+    <section id="scAuth" hidden>
+      <p>Wpisz hasło zespołu, aby zobaczyć i zapisywać wspólne scenariusze.</p>
+      <form id="scPassForm" novalidate>
+        <div class="sc-row" style="margin-top:0">
+          <input type="password" id="scPass" autocomplete="current-password" placeholder="Hasło zespołu" aria-label="Hasło zespołu">
+          <button type="submit" class="btn btn-primary btn-sm">Odblokuj</button>
+        </div>
+        <label class="mini" style="margin-top:10px">Podpis przy Twoich zmianach (opcjonalnie)
+          <input type="text" id="scNameAuth" maxlength="60" autocomplete="name" placeholder="np. Ania">
+        </label>
+      </form>
+      <p class="hint" style="margin-top:8px">Na tym urządzeniu pozostaniesz zalogowany, dopóki nie klikniesz „Zablokuj”.</p>
+    </section>
+
+    <section id="scSession" hidden>
+      <div class="sc-user">
+        <span>Połączono z bazą zespołu</span>
+        <label class="mini" style="flex-direction:row;align-items:center;gap:8px">Podpis
+          <input type="text" id="scSign" maxlength="60" autocomplete="name" placeholder="np. Ania" style="width:150px;padding:6px 9px">
+        </label>
+        <button type="button" class="btn btn-ghost btn-sm" data-act="logout">Zablokuj</button>
+      </div>
+    </section>
+
+    <section id="scNoAccess" hidden>
+      <p>Zalogowano, ale konto nie ma dostępu do scenariuszy. Administrator: uruchom ponownie <code>supabase/schema.sql</code> — dopisuje konto wspólne do tabeli <code>mc_members</code>.</p>
+    </section>
+
+    <section id="scMain" hidden>
+      <div class="banner banner-stale" id="scRemote" role="status"></div>
+      <h3 class="sc-h">Zapisane scenariusze</h3>
+      <ul class="sc-list" id="scList"></ul>
+      <h3 class="sc-h">Zapisz bieżące ustawienia</h3>
+      <form id="scSaveForm" novalidate>
+        <label>Nazwa<input id="scName" maxlength="80" autocomplete="off"></label>
+        <label>Opis (opcjonalnie)<textarea id="scDesc" maxlength="500" rows="3"></textarea></label>
+        <button type="button" class="btn btn-ghost btn-sm" id="scInsertSummary" style="margin:-4px 0 12px">Wstaw podsumowanie prognozy do opisu</button>
+        <div class="btn-row">
+          <button type="submit" class="btn btn-primary btn-sm" id="scSaveNew">Zapisz jako nowy</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="scSaveOver" hidden></button>
+        </div>
+        <p class="hint" id="scSaveMsg" role="status" style="margin-top:8px"></p>
+      </form>
+    </section>
+  </div>
+</dialog>
+<div class="sc-toast" id="scToast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* =========================================================================
+   WSPÓLNE SCENARIUSZE (Supabase): zapis, wczytywanie i zmiany na żywo.
+   Bez konfiguracji nic nie jest pobierane z sieci — dashboard działa offline.
+   ========================================================================= */
+(function(){
+// Uzupełnij po utworzeniu projektu (Project Settings → API). Obie wartości są publiczne
+// z założenia — dostęp do danych chronią reguły RLS z pliku supabase/schema.sql.
+const SUPABASE_URL='https://wxpyqglbwbbwusvpasdf.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4cHlxZ2xid2Jid3VzdnBhc2RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUxODA4MTMsImV4cCI6MjExMDc1NjgxM30.mVodx_hAkYTI47rZ5qcnqPsMLJ0WKv6yQopAv8nPMy8';
+// Wspólne konto zespołu (utwórz je w Authentication → Users). Na stronie wpisuje się tylko hasło.
+const SHARED_EMAIL='zespol@example.com';
+const SDK_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
+const SDK_SRI='sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o';
+const TABLE='mc_scenarios';
+const KINDS=['backlog','epics'];
+const KIND_LABEL={backlog:'Prognoza backlogu',epics:'Prognoza epików'};
+const $s=id=>document.getElementById(id);
+const dlg=$s('scDialog');
+let sb=null, session=null, member=null, list=[], channel=null, sdkPromise=null, refreshT=null, chipT=null, connecting=false;
+const loaded={backlog:null,epics:null};
+const ownOps=new Map();   // własne usunięcia nie wywołują powiadomień
+// konto jest wspólne, więc własne zmiany rozpoznajemy po identyfikatorze tej karty przeglądarki
+const CLIENT_ID=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Math.random()).slice(2)+Date.now();
+function getSign(){ try{ return (localStorage.getItem('mc-sc-sign')||'').slice(0,60); }catch(e){ return ''; } }
+function setSign(v){ try{ localStorage.setItem('mc-sc-sign',String(v||'').trim().slice(0,60)); }catch(e){} }
+function who(name){ return name&&name.trim()?name.trim():'osoba bez podpisu'; }
+
+function configured(){ return /^https:\/\/\S+$/.test(SUPABASE_URL)&&SUPABASE_ANON_KEY.length>20; }
+function kindNow(){ const t=document.querySelector('.tab[aria-selected="true"]'); return t&&t.dataset.tab==='epics'?'epics':'backlog'; }
+function st(k){ return window.MC_STATE[k]; }
+function stable(v){ if(Array.isArray(v)) return '['+v.map(stable).join(',')+']';
+  if(v&&typeof v==='object') return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}';
+  return JSON.stringify(v===undefined?null:v); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function fmtTs(iso){ const d=new Date(iso); return isNaN(d)?String(iso):d.toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function isDirty(k){ const L=loaded[k]; return !!(L&&stable(st(k).snapshot())!==L.json); }
+function markOwn(id){ ownOps.set(id,Date.now()); }
+function isOwn(id){ const t=ownOps.get(id); return !!t&&Date.now()-t<6000; }
+function errText(e){
+  if(!e) return ''; const m=String(e.message||e);
+  if(e.status===429||/rate limit/i.test(m)) return 'Zbyt wiele prób w krótkim czasie — odczekaj chwilę i spróbuj ponownie.';
+  if(/Failed to fetch|NetworkError|Load failed|network/i.test(m)) return 'Brak połączenia z bazą danych. Dashboard działa dalej lokalnie.';
+  if(/mc_is_member|schema cache|does not exist|relation .* not/i.test(m)) return 'Baza nie jest jeszcze przygotowana — uruchom supabase/schema.sql w panelu Supabase.';
+  if(/invalid login credentials/i.test(m)) return 'Nieprawidłowe hasło zespołu.';
+  if(/email not confirmed/i.test(m)) return 'Konto wspólne nie jest potwierdzone — przy tworzeniu zaznacz „Auto Confirm User”.';
+  if(/row-level security|permission denied/i.test(m)) return 'Brak uprawnień do scenariuszy — sprawdź konfigurację bazy.';
+  return 'Błąd bazy danych: '+m;
+}
+function setErr(m){ const b=$s('scErr'); b.textContent=m||''; b.classList.toggle('show',!!m); }
+function saveMsg(m,isErr){ const p=$s('scSaveMsg'); p.textContent=m||''; p.style.color=isErr?'var(--err)':''; }
+function toast(t){ const el=$s('scToast'); el.textContent=t; el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),5000); }
+function busy(on){ ['scSaveNew','scSaveOver'].forEach(id=>$s(id).disabled=on); }
+function fillForm(k){ const L=loaded[k]; $s('scName').value=L?L.name:''; $s('scDesc').value=L?(L.description||''):''; saveMsg(''); }
+
+/* ---- przycisk w nagłówku: nazwa wczytanego scenariusza + znacznik zmian ---- */
+function updateChip(){
+  const k=kindNow(), L=loaded[k], chip=$s('scChip');
+  if(!L){ chip.hidden=true; chip.textContent=''; return; }
+  const dirty=isDirty(k); chip.hidden=false;
+  chip.textContent='· '+L.name+(dirty?' ●':'');
+  chip.title=dirty?'Wczytany scenariusz ma niezapisane zmiany':'Wczytany scenariusz';
+}
+
+/* ---- widok okna ---- */
+function render(){
+  const cfg=configured(), k=kindNow();
+  $s('scKind').textContent=KIND_LABEL[k];
+  $s('scSetup').hidden=cfg;
+  $s('scConnecting').hidden=!(cfg&&connecting);
+  $s('scAuth').hidden=!(cfg&&sb&&!session&&!connecting);
+  $s('scSession').hidden=!session;
+  $s('scNoAccess').hidden=!(session&&member===false);
+  $s('scMain').hidden=!(session&&member===true);
+  if(session&&document.activeElement!==$s('scSign')) $s('scSign').value=getSign();
+  if(!session&&document.activeElement!==$s('scNameAuth')) $s('scNameAuth').value=getSign();
+  if(session&&member) renderList();
+  updateChip();
+}
+function renderList(){
+  const k=kindNow(), L=loaded[k], items=list.filter(x=>x.kind===k), ul=$s('scList'), dirty=isDirty(k);
+  ul.innerHTML=!items.length
+    ? '<li class="sc-empty">Brak zapisanych scenariuszy w tej zakładce. Zapisz bieżące ustawienia poniżej.</li>'
+    : items.map(x=>{ const on=!!L&&L.id===x.id;
+        return '<li class="sc-item'+(on?' is-loaded':'')+'"><div class="sc-meta">'+
+          '<div class="sc-name">'+esc(x.name)+(on?'<span class="sc-tag'+(dirty?' dirty':'')+'">'+(dirty?'wczytany · niezapisane zmiany':'wczytany')+'</span>':'')+'</div>'+
+          (x.description?'<div class="sc-desc">'+esc(x.description)+'</div>':'')+
+          '<div class="sc-by">Ostatnia zmiana: '+esc(who(x.updated_name))+' · '+esc(fmtTs(x.updated_at))+(x.created_name&&x.created_name!==x.updated_name?' · autor: '+esc(x.created_name):'')+'</div></div>'+
+          '<div class="sc-actions">'+
+            '<button type="button" class="btn btn-ghost btn-sm" data-load="'+esc(x.id)+'" aria-label="Wczytaj scenariusz '+esc(x.name)+'">Wczytaj</button>'+
+            '<button type="button" class="btn btn-ghost btn-sm" data-del="'+esc(x.id)+'" aria-label="Usuń scenariusz '+esc(x.name)+'">Usuń</button>'+
+          '</div></li>'; }).join('');
+  const rb=$s('scRemote');
+  if(L&&L.deleted){ rb.textContent='Wczytany scenariusz „'+L.name+'” został usunięty przez inną osobę. Bieżące ustawienia możesz zapisać jako nowy scenariusz.'; rb.classList.add('show'); }
+  else if(L&&L.remote){ rb.innerHTML='<span>Nowa wersja „'+esc(L.name)+'” od: '+esc(who(L.remote.by))+' ('+esc(fmtTs(L.remote.at))+').</span><button type="button" class="btn btn-ghost btn-sm" data-act="reload">Wczytaj nową wersję</button>'; rb.classList.add('show'); }
+  else rb.classList.remove('show');
+  const ov=$s('scSaveOver');
+  if(L&&!L.deleted){ ov.hidden=false; ov.textContent='Zapisz zmiany w „'+L.name+'”'; } else ov.hidden=true;
+}
+
+/* ---- połączenie i logowanie ---- */
+function loadSdk(){
+  if(window.supabase&&window.supabase.createClient) return Promise.resolve();
+  if(sdkPromise) return sdkPromise;
+  sdkPromise=new Promise((res,rej)=>{ const s=document.createElement('script');
+    s.src=SDK_URL; s.integrity=SDK_SRI; s.crossOrigin='anonymous';
+    s.onload=()=>res(); s.onerror=()=>{ sdkPromise=null; s.remove(); rej(new Error('sdk')); };
+    document.head.appendChild(s); });
+  return sdkPromise;
+}
+async function connect(){
+  if(!configured()||sb||connecting){ render(); return; }
+  connecting=true; render();
+  try{ await loadSdk(); }
+  catch(e){ connecting=false; setErr('Nie udało się wczytać biblioteki Supabase (brak internetu lub zablokowana sieć). Dashboard działa dalej lokalnie.'); render(); return; }
+  try{
+    sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    const {data}=await sb.auth.getSession(); session=data.session;
+    // zgodnie z zaleceniem Supabase: bez wywołań API wewnątrz callbacku, dlatego setTimeout
+    sb.auth.onAuthStateChange((_ev,s)=>{ const before=session&&session.user.id, after=s&&s.user.id; session=s; if(before!==after) setTimeout(afterAuth,0); });
+  }catch(e){ connecting=false; sb=null; setErr(errText(e)); render(); return; }
+  connecting=false;
+  await afterAuth();
+}
+async function afterAuth(){
+  member=null; list=[];
+  if(channel){ try{ sb.removeChannel(channel); }catch(e){} channel=null; }
+  if(session){
+    const {data,error}=await sb.rpc('mc_is_member');
+    if(error) setErr(errText(error));
+    else { member=data===true; setErr(''); if(member){ await refresh(); subscribe(); } }
+  } else { KINDS.forEach(k=>loaded[k]=null); }
+  render();
+}
+async function refresh(){
+  if(!sb||!member) return;
+  const {data,error}=await sb.from(TABLE).select('id,kind,name,description,created_name,updated_name,created_at,updated_at').order('updated_at',{ascending:false}).limit(500);
+  if(error){ setErr(errText(error)); return; }
+  setErr(''); list=data||[];
+  KINDS.forEach(k=>{ const L=loaded[k]; if(L&&!L.deleted&&!list.some(x=>x.id===L.id)) L.deleted=true; });
+  render();
+}
+function subscribe(){
+  channel=sb.channel('mc-scenarios').on('postgres_changes',{event:'*',schema:'public',table:TABLE},onChange).subscribe();
+}
+function onChange(p){
+  const row=(p.new&&p.new.id)?p.new:(p.old||{});
+  const prev=list.find(x=>x.id===row.id);
+  clearTimeout(refreshT); refreshT=setTimeout(refresh,300);
+  // własne zmiany: INSERT/UPDATE po identyfikatorze tej karty, DELETE (bez danych wiersza) po niedawnej operacji
+  if(((p.eventType==='INSERT'||p.eventType==='UPDATE')&&row.updated_client===CLIENT_ID)||(p.eventType==='DELETE'&&isOwn(row.id))) return;
+  if(p.eventType==='INSERT') toast('Nowy scenariusz „'+row.name+'” ('+(KIND_LABEL[row.kind]||'')+') — '+who(row.created_name));
+  else if(p.eventType==='UPDATE'){
+    toast('Zaktualizowano scenariusz „'+row.name+'” — '+who(row.updated_name));
+    KINDS.forEach(k=>{ const L=loaded[k]; if(L&&L.id===row.id&&row.updated_at!==L.updated_at) L.remote={by:row.updated_name,at:row.updated_at}; });
+  } else if(p.eventType==='DELETE'){
+    if(prev) toast('Usunięto scenariusz „'+prev.name+'”');
+    KINDS.forEach(k=>{ const L=loaded[k]; if(L&&L.id===row.id) L.deleted=true; });
+  }
+  render();
+}
+
+/* ---- operacje na scenariuszach ---- */
+async function saveNew(){
+  const k=kindNow(), a=st(k), name=$s('scName').value.trim(), description=$s('scDesc').value.trim();
+  if(!name){ saveMsg('Podaj nazwę scenariusza.',true); $s('scName').focus(); return; }
+  if(!a.validate()){ saveMsg('Popraw błędy w formularzu dashboardu przed zapisem.',true); return; }
+  const data=a.snapshot(); busy(true);
+  const {data:row,error}=await sb.from(TABLE).insert({kind:k,name,description,data,updated_name:getSign(),updated_client:CLIENT_ID}).select('id,name,description,updated_at').single();
+  busy(false);
+  if(error){ saveMsg(errText(error),true); return; }
+  markOwn(row.id);
+  loaded[k]={id:row.id,name:row.name,description:row.description,updated_at:row.updated_at,json:stable(data)};
+  saveMsg('Zapisano „'+row.name+'”. Scenariusz widzą teraz wszystkie osoby z dostępem.');
+  await refresh();
+}
+async function saveOver(){
+  const k=kindNow(), a=st(k), L=loaded[k]; if(!L||L.deleted) return;
+  if(!a.validate()){ saveMsg('Popraw błędy w formularzu dashboardu przed zapisem.',true); return; }
+  const data=a.snapshot(), name=$s('scName').value.trim()||L.name, description=$s('scDesc').value.trim();
+  const patch={name,description,data,updated_name:getSign(),updated_client:CLIENT_ID}, cols='id,name,description,updated_at';
+  busy(true); markOwn(L.id);
+  // zapis tylko wtedy, gdy nikt nie zmienił scenariusza od momentu wczytania
+  let {data:rows,error}=await sb.from(TABLE).update(patch).eq('id',L.id).eq('updated_at',L.updated_at).select(cols);
+  if(!error&&rows&&!rows.length){
+    const {data:cur}=await sb.from(TABLE).select('updated_at,updated_name').eq('id',L.id).maybeSingle();
+    if(!cur){ busy(false); L.deleted=true; render(); saveMsg('Scenariusz został w międzyczasie usunięty. Zapisz ustawienia jako nowy scenariusz.',true); return; }
+    if(!confirm('Scenariusz został w międzyczasie zmieniony (podpis: '+who(cur.updated_name)+', '+fmtTs(cur.updated_at)+').\n\nNadpisać tamte zmiany Twoją wersją?')){ busy(false); saveMsg('Nie zapisano. Możesz wczytać nową wersję albo zapisać swoją jako nowy scenariusz.',true); return; }
+    markOwn(L.id);
+    ({data:rows,error}=await sb.from(TABLE).update(patch).eq('id',L.id).select(cols));
+  }
+  busy(false);
+  if(error){ saveMsg(errText(error),true); return; }
+  if(!rows||!rows.length){ saveMsg('Nie udało się zapisać — brak uprawnień lub scenariusz nie istnieje.',true); return; }
+  const r=rows[0];
+  loaded[k]={id:r.id,name:r.name,description:r.description,updated_at:r.updated_at,json:stable(data)};
+  saveMsg('Zapisano zmiany w „'+r.name+'”.');
+  await refresh();
+}
+async function loadScn(id,skipConfirm){
+  const k=kindNow(), a=st(k);
+  if(!skipConfirm&&isDirty(k)&&!confirm('Wczytany scenariusz ma niezapisane zmiany. Porzucić je?')) return;
+  const {data:row,error}=await sb.from(TABLE).select('*').eq('id',id).maybeSingle();
+  if(error){ setErr(errText(error)); return; }
+  if(!row){ setErr('Ten scenariusz już nie istnieje.'); refresh(); return; }
+  if(row.kind!==k){ setErr('Ten scenariusz należy do innej zakładki.'); return; }
+  a.apply(row.data);
+  loaded[k]={id:row.id,name:row.name,description:row.description,updated_at:row.updated_at,json:stable(a.snapshot())};
+  fillForm(k); setErr(''); render(); toast('Wczytano „'+row.name+'”');
+}
+async function delScn(id){
+  const x=list.find(s=>s.id===id); if(!x) return;
+  if(!confirm('Usunąć scenariusz „'+x.name+'”?\n\nZniknie on też u innych osób. Tej operacji nie można cofnąć.')) return;
+  markOwn(id);
+  const {error}=await sb.from(TABLE).delete().eq('id',id);
+  if(error){ setErr(errText(error)); return; }
+  KINDS.forEach(k=>{ if(loaded[k]&&loaded[k].id===id) loaded[k]=null; });
+  fillForm(kindNow()); toast('Usunięto „'+x.name+'”'); await refresh();
+}
+
+/* ---- zdarzenia ---- */
+$s('scOpen').addEventListener('click',()=>{ render(); if(!dlg.open) dlg.showModal(); if(configured()&&!sb) connect(); });
+$s('scClose').addEventListener('click',()=>dlg.close());
+dlg.addEventListener('click',e=>{
+  if(e.target===dlg){ dlg.close(); return; }
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.load) loadScn(b.dataset.load);
+  else if(b.dataset.del) delScn(b.dataset.del);
+  else if(b.dataset.act==='logout'){ sb.auth.signOut(); }
+  else if(b.dataset.act==='reload'){ const L=loaded[kindNow()]; if(L) loadScn(L.id); }
+});
+$s('scSaveForm').addEventListener('submit',e=>{ e.preventDefault(); saveNew(); });
+$s('scSaveOver').addEventListener('click',saveOver);
+$s('scInsertSummary').addEventListener('click',()=>{ const f=st(kindNow()).summary; const t=f?f():'';
+  if(t){ const d=$s('scDesc'); d.value=t.slice(0,500); d.focus(); } });
+$s('scPassForm').addEventListener('submit',async e=>{
+  e.preventDefault(); const pass=$s('scPass').value;
+  if(!pass){ setErr('Wpisz hasło zespołu.'); $s('scPass').focus(); return; }
+  setSign($s('scNameAuth').value);
+  const btn=e.target.querySelector('button[type=submit]'); btn.disabled=true; setErr('');
+  const {error}=await sb.auth.signInWithPassword({email:SHARED_EMAIL,password:pass});
+  btn.disabled=false; $s('scPass').value='';
+  if(error){ setErr(errText(error)); $s('scPass').focus(); }
+});
+$s('scSign').addEventListener('input',e=>setSign(e.target.value));
+// znacznik niezapisanych zmian po edycji dashboardu
+const onEdit=e=>{ if(dlg.contains(e.target)) return; clearTimeout(chipT); chipT=setTimeout(()=>{ updateChip(); if(dlg.open&&session&&member) renderList(); },250); };
+document.addEventListener('input',onEdit,true); document.addEventListener('change',onEdit,true);
+document.addEventListener('click',e=>{ if(e.target.closest('#tab-backlog button,#tab-epics button')) onEdit(e); },true);
+document.addEventListener('mc:tabchange',()=>{ fillForm(kindNow()); render(); });
+
+// Bez konfiguracji: żadnych połączeń sieciowych. Z konfiguracją: łączymy od razu,
+// żeby odebrać logowanie z linku e-mail i powiadomienia o zmianach innych osób.
+if(configured()) connect(); else render();
+window.__SC__={stable,isDirty:k=>isDirty(k),loaded};
+})();
+</script>
+</body>
+</html>
