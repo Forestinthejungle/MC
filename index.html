@@ -1,48 +1,885 @@
 <!doctype html>
-<html lang="pl">
+<html lang="pl" data-theme="light">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MC</title>
-  <style>
-    :root {
-      --bg: #0f172a;
-      --fg: #e2e8f0;
-      --accent: #38bdf8;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      background: radial-gradient(circle at 30% 20%, #1e293b, var(--bg));
-      color: var(--fg);
-      text-align: center;
-      padding: 24px;
-    }
-    main { max-width: 560px; }
-    h1 { font-size: clamp(2.5rem, 8vw, 4.5rem); margin: 0 0 .25em; letter-spacing: -.02em; }
-    .accent { color: var(--accent); }
-    p { font-size: 1.1rem; line-height: 1.6; color: #94a3b8; }
-    .badge {
-      display: inline-block;
-      margin-top: 1.5rem;
-      padding: .5rem 1rem;
-      border: 1px solid #334155;
-      border-radius: 999px;
-      font-size: .85rem;
-      color: #cbd5e1;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prognoza dostaw — Monte Carlo</title>
+<style>
+  :root{
+    --bg:#f1f5f9; --surface:#ffffff; --surface-2:#f8fafc; --text:#0f172a; --muted:#5b6b82;
+    --border:#e2e8f0; --border-strong:#cbd5e1; --accent:#2563eb; --accent-soft:#dbeafe;
+    --cr1:#7c3aed; --cr1-soft:#ede9fe; --cr2:#db2777; --cr2-soft:#fce7f3;
+    --ok:#047857; --warn:#b45309; --warn-soft:#fef3c7; --err:#dc2626; --err-soft:#fee2e2;
+    --grid:#e5e7eb; --shadow:0 1px 2px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.06);
+    --radius:14px;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b1220; --surface:#111827; --surface-2:#0f1626; --text:#e8edf5; --muted:#9fb0c6;
+    --border:#1f2a3b; --border-strong:#334155; --accent:#60a5fa; --accent-soft:#1e293b;
+    --cr1:#a78bfa; --cr1-soft:#241a3d; --cr2:#f472b6; --cr2-soft:#3a1626;
+    --ok:#34d399; --warn:#fbbf24; --warn-soft:#3a2d08; --err:#f87171; --err-soft:#3a1414;
+    --grid:#1f2a3b; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent)}
+  h1,h2,h3{line-height:1.25;margin:0}
+  header.app{
+    position:sticky;top:0;z-index:20;background:var(--surface);
+    border-bottom:1px solid var(--border);box-shadow:var(--shadow);
+  }
+  .header-inner{max-width:1280px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .brand{display:flex;flex-direction:column;gap:2px}
+  .brand h1{font-size:1.15rem;font-weight:700;letter-spacing:-.01em}
+  .brand span{font-size:.82rem;color:var(--muted)}
+  .header-spacer{flex:1}
+  .wrap{max-width:1280px;margin:0 auto;padding:20px;display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start}
+  @media (max-width:980px){.wrap{grid-template-columns:1fr}}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .panel-pad{padding:18px}
+  aside.params{position:sticky;top:78px}
+  @media (max-width:980px){aside.params{position:static}}
+  .section{margin-bottom:20px}
+  .section > h2{font-size:1.08rem;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+  .section .lead{color:var(--muted);font-size:.92rem;margin:0 0 14px}
+  .field{margin-bottom:14px}
+  .field > label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px}
+  .hint{color:var(--muted);font-size:.82rem;margin-top:5px}
+  .note{font-size:.82rem;margin-top:6px;padding:8px 10px;border-radius:10px;background:var(--warn-soft);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent)}
+  input[type=text],input[type=number],input[type=date],select{
+    width:100%;padding:9px 11px;border:1px solid var(--border-strong);border-radius:10px;
+    background:var(--surface-2);color:var(--text);font:inherit;
+  }
+  input:focus-visible,select:focus-visible,button:focus-visible,.seg label:focus-within,[tabindex]:focus-visible{
+    outline:3px solid var(--accent);outline-offset:2px
+  }
+  .inline-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .err-msg{color:var(--err);font-size:.82rem;margin-top:5px;font-weight:600}
+  .field.invalid input,.field.invalid select{border-color:var(--err);background:var(--err-soft)}
+  /* segmented */
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:12px;padding:3px;gap:3px;width:100%}
+  .seg label{flex:1;position:relative;display:flex;align-items:center;justify-content:center;gap:6px;
+    padding:8px 10px;border-radius:9px;cursor:pointer;font-weight:600;font-size:.9rem;color:var(--muted);user-select:none}
+  .seg input{position:absolute;opacity:0;width:1px;height:1px}
+  .seg input:checked + span{color:#fff}
+  .seg label:has(input:checked){background:var(--accent);color:#fff;box-shadow:var(--shadow)}
+  .seg label span{position:relative;z-index:1}
+  /* buttons */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;border-radius:11px;
+    font:inherit;font-weight:650;cursor:pointer;border:1px solid transparent}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{filter:brightness(1.07)}
+  .btn-ghost{background:var(--surface-2);color:var(--text);border-color:var(--border-strong)}
+  .btn-ghost:hover{background:var(--border)}
+  .btn-sm{padding:6px 11px;font-size:.84rem;border-radius:9px}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .theme-toggle{display:inline-flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border-strong);
+    border-radius:999px;padding:4px;cursor:pointer}
+  .theme-toggle button{border:none;background:transparent;color:var(--muted);padding:6px 12px;border-radius:999px;cursor:pointer;font:inherit;font-weight:600;font-size:.85rem}
+  .theme-toggle button[aria-pressed=true]{background:var(--accent);color:#fff}
+  /* cards */
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media (max-width:560px){.cards{grid-template-columns:1fr}}
+  .card{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--surface-2)}
+  .card .plabel{font-size:.78rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--accent)}
+  .card .big{font-size:1.5rem;font-weight:750;margin:6px 0 2px;letter-spacing:-.01em}
+  .card .sub{font-size:.85rem;color:var(--muted)}
+  .card .interp{font-size:.8rem;color:var(--muted);margin-top:9px;padding-top:9px;border-top:1px dashed var(--border-strong)}
+  /* tables */
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px}
+  table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:520px}
+  caption{text-align:left;padding:10px 12px;font-weight:650;background:var(--surface-2);border-bottom:1px solid var(--border)}
+  th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--border)}
+  th:first-child,td:first-child{text-align:left}
+  thead th{background:var(--surface-2);font-size:.8rem;color:var(--muted);font-weight:650;position:sticky;top:0}
+  tbody tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.78rem;font-weight:700}
+  .pill-base{background:var(--accent-soft);color:var(--accent)}
+  .pill-cr1{background:var(--cr1-soft);color:var(--cr1)}
+  .pill-cr2{background:var(--cr2-soft);color:var(--cr2)}
+  .delta-pos{color:var(--err);font-weight:650}
+  .delta-neg{color:var(--ok);font-weight:650}
+  .delta-zero{color:var(--muted)}
+  /* banners */
+  .banner{display:none;align-items:center;gap:10px;padding:11px 14px;border-radius:11px;margin-bottom:14px;font-size:.9rem;font-weight:600}
+  .banner.show{display:flex}
+  .banner-stale{background:var(--warn-soft);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent)}
+  .banner-info{background:var(--accent-soft);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent)}
+  .banner-err{background:var(--err-soft);color:var(--err);border:1px solid color-mix(in srgb,var(--err) 35%,transparent)}
+  .deadline-box{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+  .deadline-box .field{margin:0;min-width:200px;flex:1}
+  .meta{font-size:.84rem;color:var(--muted);margin:2px 0 12px}
+  /* CR scenario editor */
+  .cr-scn{border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--surface-2)}
+  .cr-scn.cr1{border-left:4px solid var(--cr1)}
+  .cr-scn.cr2{border-left:4px solid var(--cr2)}
+  .cr-scn .row{display:grid;grid-template-columns:1.1fr 1fr auto;gap:8px;align-items:end}
+  .cr-scn h4{margin:0 0 8px;font-size:.92rem;display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .cr-calc{font-size:.83rem;color:var(--muted);margin-top:8px}
+  .cr-calc b{color:var(--text)}
+  canvas{display:block;width:100%;height:auto;border-radius:12px}
+  .chart-card{padding:14px}
+  details.help{border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow)}
+  details.help summary{cursor:pointer;padding:14px 18px;font-weight:650;list-style:none}
+  details.help summary::-webkit-details-marker{display:none}
+  details.help summary::before{content:"▸";display:inline-block;margin-right:8px;transition:transform .15s}
+  details.help[open] summary::before{transform:rotate(90deg)}
+  details.help .help-body{padding:0 18px 16px;color:var(--muted);font-size:.9rem}
+  details.help .help-body p{margin:0 0 10px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+  .divider{height:1px;background:var(--border);margin:16px 0}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin-top:10px}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  footer.app{max-width:1280px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);font-size:.8rem}
+</style>
 </head>
 <body>
+<header class="app">
+  <div class="header-inner">
+    <div class="brand">
+      <h1>Prognoza dostaw — Monte Carlo</h1>
+      <span>Probabilistyczne prognozowanie terminów na podstawie historycznej przepustowości</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="theme-toggle" role="group" aria-label="Motyw kolorystyczny">
+      <button type="button" id="themeLight" aria-pressed="false">☀︎ Jasny</button>
+      <button type="button" id="themeDark" aria-pressed="false">☾ Ciemny</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- ======================= PANEL PARAMETRÓW ======================= -->
+  <aside class="params">
+    <form id="form" class="panel panel-pad" novalidate>
+      <h2 style="font-size:1.05rem;margin-bottom:14px">Parametry prognozy</h2>
+
+      <div class="field" id="f-backlog">
+        <label for="backlog">Liczba elementów w backlogu</label>
+        <input type="number" id="backlog" min="0" step="1" value="62" inputmode="numeric">
+        <div class="err-msg" hidden></div>
+      </div>
+
+      <div class="field" id="f-start">
+        <label for="startDate">Data rozpoczęcia prac</label>
+        <input type="date" id="startDate" value="2027-01-01">
+        <div class="err-msg" hidden></div>
+      </div>
+
+      <div class="field" id="f-sprint">
+        <label id="sprintLabel">Długość sprintu</label>
+        <div class="seg" role="radiogroup" aria-labelledby="sprintLabel">
+          <label><input type="radio" name="sprintLen" value="7"><span>1 tydzień</span></label>
+          <label><input type="radio" name="sprintLen" value="14" checked><span>2 tygodnie</span></label>
+        </div>
+      </div>
+
+      <div class="field" id="f-history">
+        <label for="history">Historyczna przepustowość sprintów</label>
+        <input type="text" id="history" value="5, 4, 4, 5, 6, 4, 2, 3, 2, 5, 6" spellcheck="false" autocomplete="off">
+        <div class="hint" id="historyHint"></div>
+        <div class="note" id="historyNote" hidden></div>
+        <div class="err-msg" hidden></div>
+      </div>
+
+      <div class="field" id="f-probs">
+        <label>Poziomy prawdopodobieństwa (%)</label>
+        <div class="inline-3">
+          <input type="number" id="p1" min="1" max="99" step="1" value="50" aria-label="Poziom prawdopodobieństwa 1">
+          <input type="number" id="p2" min="1" max="99" step="1" value="85" aria-label="Poziom prawdopodobieństwa 2">
+          <input type="number" id="p3" min="1" max="99" step="1" value="95" aria-label="Poziom prawdopodobieństwa 3">
+        </div>
+        <div class="hint">Wartości od 1% do 99%. Wyniki prezentowane są rosnąco.</div>
+        <div class="err-msg" hidden></div>
+      </div>
+
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary" id="recalc">Przelicz prognozę</button>
+        <button type="button" class="btn btn-ghost" id="reset">Przywróć dane przykładowe</button>
+      </div>
+      <p class="hint" style="margin-top:12px">20&nbsp;000 symulacji • generator ze stałym ziarnem (wyniki powtarzalne)</p>
+    </form>
+  </aside>
+
+  <!-- ======================= WYNIKI ======================= -->
   <main>
-    <h1>Witaj w <span class="accent">MC</span></h1>
-    <p>Strona działa i jest hostowana przez GitHub Pages.</p>
-    <span class="badge">🚀 Zbudowano z Claude Code</span>
+    <div class="banner banner-stale" id="staleBanner" role="status" aria-live="polite">
+      ⟳ Parametry się zmieniły. Kliknij „Przelicz prognozę”, aby zaktualizować wyniki.
+    </div>
+    <div class="banner banner-err" id="globalErr" role="alert" aria-live="assertive"></div>
+
+    <!-- SEKCJA 2 -->
+    <section class="section panel panel-pad" id="sec-completion">
+      <h2>Kiedy ukończymy cały backlog?</h2>
+      <p class="lead">Poniżej pokazujemy daty ukończenia wszystkich elementów backlogu przy trzech wybranych poziomach prawdopodobieństwa.</p>
+      <div class="cards" id="completionCards"></div>
+      <div class="banner banner-info" id="completionMsg" role="status"></div>
+      <div class="panel chart-card" style="margin-top:14px;background:var(--surface-2)">
+        <h3 style="font-size:.95rem;margin-bottom:4px">Skumulowane prawdopodobieństwo ukończenia backlogu</h3>
+        <p class="hint" style="margin-top:0">Oś X: daty zakończenia sprintów · Oś Y: odsetek symulacji, które do danej daty ukończyły cały backlog.</p>
+        <canvas id="chart" width="760" height="340" role="img" aria-label="Wykres skumulowanego prawdopodobieństwa ukończenia backlogu w czasie"></canvas>
+        <div class="legend" id="chartLegend"></div>
+      </div>
+    </section>
+
+    <!-- SEKCJA 3 -->
+    <section class="section panel panel-pad" id="sec-quantity">
+      <h2>Ile dostarczymy do wybranej daty?</h2>
+      <div class="deadline-box">
+        <div class="field" id="f-deadline">
+          <label for="deadline">Data graniczna dostawy</label>
+          <input type="date" id="deadline" value="2027-03-31">
+          <div class="err-msg" hidden></div>
+        </div>
+        <div class="meta" id="deadlineMeta" style="margin:0"></div>
+      </div>
+      <div class="cards" id="quantityCards"></div>
+      <div class="banner banner-info" id="quantityMsg" role="status"></div>
+    </section>
+
+    <!-- SEKCJA 4 -->
+    <section class="section panel panel-pad" id="sec-cr">
+      <h2>CR — zmiana zakresu</h2>
+      <p class="lead">Porównanie prognozy bazowej z maksymalnie dwoma scenariuszami zmiany zakresu. Każdy scenariusz liczony jest względem pierwotnego backlogu.</p>
+
+      <div id="crEditors"></div>
+      <div class="btn-row" id="crAddRow" style="margin-bottom:16px">
+        <button type="button" class="btn btn-ghost btn-sm" id="crAdd">+ Dodaj drugi scenariusz</button>
+      </div>
+
+      <div class="banner banner-err" id="crErr" role="alert"></div>
+
+      <h3 style="font-size:.95rem;margin:14px 0 8px">Tabela 1 — data ukończenia całości</h3>
+      <div class="tbl-wrap"><table id="crTable1"></table></div>
+
+      <h3 style="font-size:.95rem;margin:18px 0 8px">Tabela 2 — liczba elementów do daty granicznej</h3>
+      <div class="tbl-wrap"><table id="crTable2"></table></div>
+
+      <p class="hint" style="margin-top:14px">
+        Model stosuje <b>to samo tempo dostarczania</b> we wszystkich scenariuszach i traktuje zmieniony zakres jako dostępny od początku prac.
+        Przy wzroście backlogu liczba dostarczonych elementów do terminu może pozostać taka sama, udział ukończonego zakresu może spaść,
+        a data ukończenia całości może się przesunąć.
+      </p>
+    </section>
+
+    <!-- SEKCJA POMOCY -->
+    <details class="help" id="help">
+      <summary>Jak czytać prognozę?</summary>
+      <div class="help-body">
+        <p><b>Skąd biorą się liczby?</b> Dla każdego przyszłego sprintu losujemy (ze zwracaniem) jedną wartość z podanej historii przepustowości — każdy historyczny sprint ma równą szansę, a powtórzenia zachowują swoją częstość. Powtarzamy to 20&nbsp;000 razy, budując rozkład możliwych terminów.</p>
+        <p><b>Założenie.</b> Prognoza zakłada, że przyszłe tempo dostarczania będzie podobne do dotychczasowego. Im bardziej stabilna i reprezentatywna historia, tym pewniejsza prognoza.</p>
+        <p><b>Dwa różne pytania.</b> „Kiedy ukończymy całość?” szuka najwcześniejszej daty, do której cały backlog został ukończony w co najmniej p% symulacji. „Ile ukończymy do wybranej daty?” pyta o największą liczbę elementów osiągniętą w co najmniej p% symulacji w ustalonym oknie czasu. Wyższy wymagany poziom prawdopodobieństwa oznacza ostrożniejszą (późniejszą datę / mniejszą liczbę elementów) prognozę.</p>
+        <p><b>Poziom prawdopodobieństwa</b> to pewność prognozy: 85% oznacza, że w 85% symulacji cel został osiągnięty do podanej wartości włącznie.</p>
+      </div>
+    </details>
   </main>
+</div>
+
+<footer class="app">
+  Wszystkie obliczenia wykonują się lokalnie w przeglądarce. Brak serwera, API i połączeń sieciowych.
+</footer>
+
+<script>
+"use strict";
+(function(){
+/* =========================================================================
+   NARZĘDZIA: DATY (odporne na strefy czasowe — wszystko w UTC, dzień = doba)
+   ========================================================================= */
+const DAY = 86400000;
+function isoToUTC(iso){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); if(!m) return NaN;
+  const y=+m[1],mo=+m[2],d=+m[3]; const ms=Date.UTC(y,mo-1,d);
+  const dt=new Date(ms); if(dt.getUTCFullYear()!==y||dt.getUTCMonth()!==mo-1||dt.getUTCDate()!==d) return NaN; return ms; }
+function addDays(ms,n){ return ms + n*DAY; }
+function daysBetween(a,b){ return Math.round((b-a)/DAY); }
+function fmtDate(ms){ const dt=new Date(ms);
+  const d=String(dt.getUTCDate()).padStart(2,'0'); const mo=String(dt.getUTCMonth()+1).padStart(2,'0');
+  return d+'.'+mo+'.'+dt.getUTCFullYear(); }
+// koniec n-tego sprintu = start + (n*len - 1) dni
+function sprintEnd(startMs,n,len){ return addDays(startMs, n*len - 1); }
+// liczba sprintów kończących się w dacie granicznej lub wcześniej
+function sprintsByDeadline(startMs,deadlineMs,len){
+  const delta=daysBetween(startMs,deadlineMs); if(delta<0) return 0;
+  return Math.floor((delta+1)/len);
+}
+
+/* =========================================================================
+   PRNG: mulberry32 — stałe ziarno, odtwarzalna sekwencja per próba
+   ========================================================================= */
+const BASE_SEED = 0x9e3779b9;
+function mulberry32(a){
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* =========================================================================
+   SYMULACJA: jedna, wspólna sekwencja losowań dla bazy i scenariuszy CR
+   scenarios: [{backlog}]  (tylko backlog > 0)
+   Zwraca per scenariusz: delivered[](N), completion[](N, sentinel=CAP+1), capHit
+   ========================================================================= */
+const N_SIMS = 20000;
+const MAX_SPRINTS = 5000;
+function runSimulation(scenarioBacklogs, history, K){
+  const S = scenarioBacklogs.length;
+  const H = history.length;
+  const delivered = [], completion = [];
+  for(let j=0;j<S;j++){ delivered.push(new Int32Array(N_SIMS)); completion.push(new Int32Array(N_SIMS)); }
+  const SENT = MAX_SPRINTS + 1;
+  let capHit = false;
+  const done = new Array(S);
+
+  for(let t=0;t<N_SIMS;t++){
+    const rng = mulberry32((BASE_SEED + t) | 0);
+    let cum = 0, cumAtK = 0, sprint = 0, remaining = S;
+    for(let j=0;j<S;j++) done[j]=false;
+
+    while(remaining>0 && sprint<MAX_SPRINTS){
+      sprint++;
+      const draw = history[(rng()*H)|0];
+      cum += draw;
+      if(sprint<=K) cumAtK = cum;           // cum na koniec min(sprint,K)-tego sprintu
+      for(let j=0;j<S;j++){
+        if(!done[j] && cum>=scenarioBacklogs[j]){ done[j]=true; completion[j][t]=sprint; remaining--; }
+      }
+    }
+    if(remaining>0){ capHit=true; for(let j=0;j<S;j++) if(!done[j]) completion[j][t]=SENT; }
+    for(let j=0;j<S;j++) delivered[j][t] = Math.min(scenarioBacklogs[j], cumAtK);
+  }
+  return {delivered, completion, capHit, N:N_SIMS};
+}
+
+// Próg ilościowy: największe X z P(dostarczono >= X) >= p
+function qtyForProb(sortedAsc, p){
+  const N=sortedAsc.length; const req=Math.ceil(p*N); return sortedAsc[N-req];
+}
+// Próg czasowy: najmniejszy numer sprintu, do którego ukończono w >= p% symulacji
+function sprintForProb(sortedAsc, p){
+  const N=sortedAsc.length; const req=Math.ceil(p*N); return sortedAsc[req-1];
+}
+
+/* =========================================================================
+   OBLICZENIE WYNIKÓW DLA KOMPLETU SCENARIUSZY
+   ========================================================================= */
+function computeModel(cfg){
+  // cfg: {backlog, history, startMs, len, probs:[frac], deadlineMs, scenarios:[{id,label,backlog}]}
+  const {history, startMs, len, probs, deadlineMs, scenarios} = cfg;
+  const K = sprintsByDeadline(startMs, deadlineMs, len);
+  const lastEndMs = K>0 ? sprintEnd(startMs,K,len) : null;
+  const allZeros = history.length>0 && history.every(h=>h===0);
+
+  // które scenariusze wymagają symulacji (backlog>0 i nie allZeros)
+  const simIdx=[], simBacklogs=[];
+  scenarios.forEach((s,i)=>{ if(s.backlog>0 && !allZeros){ simIdx.push(i); simBacklogs.push(s.backlog); } });
+
+  let sim=null, capHit=false;
+  if(simBacklogs.length){ sim=runSimulation(simBacklogs, history, K); capHit=sim.capHit; }
+
+  // przygotuj posortowane kopie
+  const sortedDeliv={}, sortedComp={}, compArr={};
+  if(sim){ simIdx.forEach((sc,j)=>{
+    sortedDeliv[sc]=Int32Array.from(sim.delivered[j]).sort();
+    sortedComp[sc]=Int32Array.from(sim.completion[j]).sort();
+    compArr[sc]=sim.completion[j];
+  }); }
+
+  const results = scenarios.map((s,i)=>{
+    const r={id:s.id,label:s.label,backlog:s.backlog,completion:[],quantity:{K,lastEndMs,perProb:[]},
+             chart:null,emptyBacklog:false,allZeros:false,noCompletion:false};
+    if(s.backlog===0){
+      r.emptyBacklog=true;
+      probs.forEach(p=>{ r.completion.push({p,sprintCount:0,dateMs:startMs,noDate:false}); });
+      probs.forEach(p=>{ r.quantity.perProb.push({p,items:0,share:null}); });
+      return r;
+    }
+    if(allZeros){
+      r.allZeros=true; r.noCompletion=true;
+      probs.forEach(p=>{ r.completion.push({p,sprintCount:null,dateMs:null,noDate:true}); });
+      probs.forEach(p=>{ r.quantity.perProb.push({p,items:0,share:0}); });
+      return r;
+    }
+    const sd=sortedDeliv[i], scp=sortedComp[i];
+    probs.forEach(p=>{
+      const sp=sprintForProb(scp,p);
+      if(sp>MAX_SPRINTS){ r.completion.push({p,sprintCount:null,dateMs:null,noDate:true,capped:true}); }
+      else r.completion.push({p,sprintCount:sp,dateMs:sprintEnd(startMs,sp,len),noDate:false});
+    });
+    probs.forEach(p=>{
+      const items=qtyForProb(sd,p);
+      const share = s.backlog>0 ? items/s.backlog*100 : null;
+      r.quantity.perProb.push({p,items,share});
+    });
+    // dane wykresu (histogram ukończeń)
+    r.chart=buildChart(compArr[i], startMs, len, r.completion);
+    return r;
+  });
+
+  return {K,lastEndMs,allZeros,capHit,results,probs};
+}
+
+function buildChart(compArr, startMs, len, completionThresholds){
+  const N=compArr.length;
+  let maxS=1;
+  for(let t=0;t<N;t++){ const v=compArr[t]; if(v<=MAX_SPRINTS && v>maxS) maxS=v; }
+  // ogranicz do ~99.5 percentyla dla czytelności, ale obejmij progi
+  const hist=new Int32Array(maxS+2);
+  for(let t=0;t<N;t++){ const v=compArr[t]; if(v<=maxS) hist[v]++; }
+  let cum=0; const pts=[]; let cutoff=maxS;
+  // znajdź sprint, gdzie frakcja >= 0.995
+  let acc=0;
+  for(let s=1;s<=maxS;s++){ acc+=hist[s]; if(acc/N>=0.995){ cutoff=s; break; } }
+  let maxThr=0; completionThresholds.forEach(c=>{ if(c.sprintCount&&c.sprintCount>maxThr) maxThr=c.sprintCount; });
+  cutoff=Math.max(cutoff,maxThr);
+  for(let s=1;s<=cutoff;s++){ cum+=hist[s]; pts.push({sprint:s,dateMs:sprintEnd(startMs,s,len),frac:cum/N}); }
+  return {points:pts, maxSprint:cutoff};
+}
+
+/* =========================================================================
+   WALIDACJA I ODCZYT FORMULARZA
+   ========================================================================= */
+const $=id=>document.getElementById(id);
+const DEFAULT_HISTORY_STR="5, 4, 4, 5, 6, 4, 2, 3, 2, 5, 6";
+const DEFAULT_HISTORY=[5,4,4,5,6,4,2,3,2,5,6];
+
+function setFieldError(fieldId,msg){
+  const f=$(fieldId); if(!f) return;
+  const el=f.querySelector('.err-msg');
+  if(msg){ f.classList.add('invalid'); if(el){el.textContent=msg;el.hidden=false;} }
+  else { f.classList.remove('invalid'); if(el){el.hidden=true;el.textContent='';} }
+}
+function clearErrors(){ ['f-backlog','f-start','f-history','f-probs','f-deadline'].forEach(id=>setFieldError(id,'')); }
+
+function parseHistory(str){
+  const raw=str.split(',').map(s=>s.trim());
+  if(raw.length===0||raw.some(s=>s==='')) return {err:'Podaj liczby oddzielone przecinkami.'};
+  if(raw.length>20) return {err:'Maksymalnie 20 wartości (po jednej na sprint).'};
+  const out=[];
+  for(const s of raw){
+    if(!/^\d+$/.test(s)) return {err:'Dozwolone są wyłącznie nieujemne liczby całkowite.'};
+    out.push(parseInt(s,10));
+  }
+  if(out.length<1||out.length>20) return {err:'Podaj od 1 do 20 wartości.'};
+  return {value:out};
+}
+
+function readInputs(){
+  clearErrors();
+  let ok=true;
+  const data={};
+  // backlog
+  const bRaw=$('backlog').value.trim();
+  if(!/^\d+$/.test(bRaw)){ setFieldError('f-backlog','Podaj nieujemną liczbę całkowitą.'); ok=false; }
+  else data.backlog=parseInt(bRaw,10);
+  // start
+  const startMs=isoToUTC($('startDate').value);
+  if(isNaN(startMs)){ setFieldError('f-start','Podaj poprawną datę.'); ok=false; } else data.startMs=startMs;
+  // sprint
+  data.len=parseInt(document.querySelector('input[name=sprintLen]:checked').value,10);
+  // history
+  const h=parseHistory($('history').value);
+  if(h.err){ setFieldError('f-history',h.err); ok=false; } else data.history=h.value;
+  // probs
+  const praw=[$('p1').value,$('p2').value,$('p3').value];
+  const pvals=[];
+  let pErr=null;
+  for(const pv of praw){ const s=pv.trim(); if(!/^\d+$/.test(s)){pErr='Podaj liczby całkowite 1–99.';break;}
+    const n=parseInt(s,10); if(n<1||n>99){pErr='Dozwolone wartości: 1–99.';break;} pvals.push(n); }
+  if(pErr){ setFieldError('f-probs',pErr); ok=false; }
+  else { data.probsPct=pvals.slice().sort((a,b)=>a-b); data.probs=data.probsPct.map(p=>p/100); }
+  // deadline
+  const dMs=isoToUTC($('deadline').value);
+  if(isNaN(dMs)){ setFieldError('f-deadline','Podaj poprawną datę.'); ok=false; } else data.deadlineMs=dMs;
+
+  return ok?{ok:true,data}:{ok:false};
+}
+
+/* =========================================================================
+   SCENARIUSZE CR
+   ========================================================================= */
+let crScenarios=[
+  {id:'cr1',label:'Scenariusz CR 1',unit:'percent',value:20},
+  {id:'cr2',label:'Scenariusz CR 2',unit:'percent',value:30},
+];
+function roundHalfUpAbs(x){ const s=x<0?-1:1; return s*Math.round(Math.abs(x)); }
+
+function crChangeItems(scn, baseBacklog){
+  if(scn.unit==='percent'){ return roundHalfUpAbs(baseBacklog*scn.value/100); }
+  return Math.trunc(scn.value); // elementy — liczba całkowita
+}
+
+function renderCrEditors(){
+  const host=$('crEditors'); host.innerHTML='';
+  crScenarios.forEach((scn,i)=>{
+    const cls=i===0?'cr1':'cr2';
+    const pill=i===0?'pill-cr1':'pill-cr2';
+    const div=document.createElement('div');
+    div.className='cr-scn '+cls;
+    div.innerHTML=
+      '<h4><span class="pill '+pill+'">'+(i===0?'CR 1':'CR 2')+'</span>'+
+        (i===1?'<button type="button" class="btn btn-ghost btn-sm" data-remove="'+i+'">Usuń</button>':'<span></span>')+'</h4>'+
+      '<div class="row">'+
+        '<div><label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:5px">Jednostka</label>'+
+          '<select data-unit="'+i+'">'+
+            '<option value="percent"'+(scn.unit==='percent'?' selected':'')+'>procent backlogu</option>'+
+            '<option value="items"'+(scn.unit==='items'?' selected':'')+'>elementy</option>'+
+          '</select></div>'+
+        '<div><label style="font-size:.82rem;font-weight:600;display:block;margin-bottom:5px">Zmiana zakresu</label>'+
+          '<input type="number" step="'+(scn.unit==='percent'?'1':'1')+'" data-value="'+i+'" value="'+scn.value+'"></div>'+
+        '<div></div>'+
+      '</div>'+
+      '<div class="cr-calc" data-calc="'+i+'"></div>';
+    host.appendChild(div);
+  });
+  $('crAdd').style.display = crScenarios.length>=2 ? 'none':'inline-flex';
+  // listeners
+  host.querySelectorAll('[data-unit]').forEach(sel=>sel.addEventListener('change',e=>{
+    const i=+e.target.dataset.unit; crScenarios[i].unit=e.target.value; markStale(); updateCrCalc(); }));
+  host.querySelectorAll('[data-value]').forEach(inp=>inp.addEventListener('input',e=>{
+    const i=+e.target.dataset.value; crScenarios[i].value=parseFloat(e.target.value); markStale(); updateCrCalc(); }));
+  host.querySelectorAll('[data-remove]').forEach(btn=>btn.addEventListener('click',e=>{
+    crScenarios.splice(+e.target.dataset.remove,1); renderCrEditors(); markStale(); updateCrCalc(); }));
+  updateCrCalc();
+}
+function updateCrCalc(){
+  const bRaw=$('backlog').value.trim(); const base=/^\d+$/.test(bRaw)?parseInt(bRaw,10):null;
+  crScenarios.forEach((scn,i)=>{
+    const el=document.querySelector('[data-calc="'+i+'"]'); if(!el) return;
+    if(base===null||isNaN(scn.value)){ el.textContent='—'; return; }
+    const delta=crChangeItems(scn,base); const nb=base+delta;
+    let txt='Zmiana: <b>'+(delta>=0?'+':'')+delta+'</b> el.  →  nowy backlog: <b>'+nb+'</b> el.';
+    if(nb<0) txt+='  <span style="color:var(--err);font-weight:700">(ujemny — scenariusz pominięty)</span>';
+    el.innerHTML=txt;
+  });
+}
+
+/* =========================================================================
+   RENDEROWANIE WYNIKÓW
+   ========================================================================= */
+let lastModel=null, lastThemeColors=null;
+
+function render(model, data){
+  lastModel=model; lastModel._data=data;
+  const base=model.results[0];
+  const probsPct=data.probsPct;
+
+  // ---- SEKCJA 2: karty ukończenia ----
+  const cc=$('completionCards'); cc.innerHTML='';
+  const cmsg=$('completionMsg'); cmsg.className='banner banner-info';
+  base.completion.forEach((c,idx)=>{
+    const pct=probsPct[idx];
+    const div=document.createElement('div'); div.className='card';
+    let big,sub,interp;
+    if(c.noDate){ big='Brak prognozy'; sub=c.capped?'Przekroczono limit sprintów':'Brak prognozowanej daty ukończenia'; interp=''; }
+    else { big=fmtDate(c.dateMs); sub=c.sprintCount+' '+sprintWord(c.sprintCount);
+      interp='W co najmniej '+pct+'% symulacji wszystkie elementy zostały ukończone do tej daty włącznie.'; }
+    div.innerHTML='<div class="plabel">'+pct+'%</div><div class="big">'+big+'</div>'+
+      '<div class="sub">'+sub+'</div>'+(interp?'<div class="interp">'+interp+'</div>':'');
+    cc.appendChild(div);
+  });
+  if(base.emptyBacklog){ cmsg.textContent='Backlog jest pusty — całość jest ukończona w dniu rozpoczęcia prac (0 sprintów).'; cmsg.classList.add('show'); }
+  else if(base.allZeros){ cmsg.textContent='Historia składa się wyłącznie z zer — brak prognozowanej daty ukończenia. Pętla symulacji została pominięta.'; cmsg.classList.add('show'); }
+  else if(base.backlog>0 && data.history.length===1){ cmsg.textContent='Historia zawiera jedną obserwację — każdy symulowany sprint korzysta z tej samej wartości ('+data.history[0]+').'; cmsg.classList.add('show'); }
+  else cmsg.classList.remove('show');
+
+  // ---- WYKRES ----
+  drawChart(base, probsPct);
+
+  // ---- SEKCJA 3: prognoza ilościowa ----
+  const dm=$('deadlineMeta');
+  if(model.K>0){ dm.innerHTML='W prognozie ujęto <b>'+model.K+'</b> '+sprintWord(model.K)+' • koniec ostatniego: <b>'+fmtDate(model.lastEndMs)+'</b>'; }
+  else dm.innerHTML='Data graniczna wypada <b>przed końcem pierwszego sprintu</b> — w prognozie ujęto 0 sprintów.';
+  const qc=$('quantityCards'); qc.innerHTML='';
+  const qmsg=$('quantityMsg'); qmsg.className='banner banner-info';
+  base.quantity.perProb.forEach((q,idx)=>{
+    const pct=probsPct[idx];
+    const div=document.createElement('div'); div.className='card';
+    const shareTxt = (q.share!==null) ? ' • '+q.share.toFixed(1)+'% backlogu' : '';
+    const interp='W co najmniej '+pct+'% symulacji do tej daty ukończono co najmniej '+q.items+' '+elemWord(q.items)+'.';
+    div.innerHTML='<div class="plabel">'+pct+'%</div><div class="big">'+q.items+' '+elemWord(q.items)+'</div>'+
+      '<div class="sub">'+(q.share!==null?q.share.toFixed(1)+'% backlogu':'backlog pusty')+'</div>'+
+      '<div class="interp">'+interp+'</div>';
+    qc.appendChild(div);
+  });
+  if(model.K===0){ qmsg.textContent='Termin wypada przed końcem pierwszego sprintu, dlatego prognoza wskazuje 0 elementów — żaden sprint nie zdążył się zakończyć.'; qmsg.classList.add('show'); }
+  else if(base.emptyBacklog){ qmsg.textContent='Backlog jest pusty — nie ma elementów do dostarczenia.'; qmsg.classList.add('show'); }
+  else if(base.allZeros){ qmsg.textContent='Historia z samymi zerami — prognozowana liczba dostarczonych elementów wynosi 0.'; qmsg.classList.add('show'); }
+  else qmsg.classList.remove('show');
+
+  // ---- SEKCJA 4: CR ----
+  renderCrTables(model, data);
+
+  // limit zabezpieczający
+  const ge=$('globalErr');
+  if(model.capHit){ ge.textContent='Przekroczono limit '+MAX_SPRINTS+' sprintów w symulacji (bardzo niska przepustowość). Nie można przedstawić wiarygodnej prognozy ukończenia — zweryfikuj dane historyczne.'; ge.classList.add('show'); }
+  else ge.classList.remove('show');
+}
+
+function renderCrTables(model, data){
+  const probsPct=data.probsPct;
+  const base=model.results[0];
+  const crs=model.results.slice(1); // aktywne scenariusze (już policzone)
+  const t1=$('crTable1'), t2=$('crTable2');
+
+  // Nagłówki
+  let head1='<caption>Porównanie dat ukończenia całości (różnice w dniach kalendarzowych względem bazy)</caption><thead><tr><th>Poziom</th><th>Baza</th>';
+  crs.forEach((r,i)=>{ head1+='<th>'+scnPill(r,i)+'<br>data</th><th>Δ dni</th>'; });
+  head1+='</tr></thead>';
+  let body1='<tbody>';
+  probsPct.forEach((pct,idx)=>{
+    body1+='<tr><td><span class="pill pill-base">'+pct+'%</span></td>';
+    const b=base.completion[idx];
+    body1+='<td>'+(b.noDate?'—':fmtDate(b.dateMs))+'</td>';
+    crs.forEach((r)=>{
+      const c=r.completion[idx];
+      let dateTxt=c.noDate?'—':fmtDate(c.dateMs);
+      let diffTxt='—';
+      if(!b.noDate && !c.noDate){ const d=daysBetween(b.dateMs,c.dateMs); diffTxt=deltaSpan(d,'dni'); }
+      body1+='<td>'+dateTxt+'</td><td>'+diffTxt+'</td>';
+    });
+    body1+='</tr>';
+  });
+  body1+='</tbody>';
+  t1.innerHTML=head1+body1;
+
+  let head2='<caption>Porównanie liczby elementów do daty granicznej ('+(model.K>0?fmtDate(model.lastEndMs):'brak sprintów')+')</caption><thead><tr><th>Poziom</th><th>Baza (szt.)</th>';
+  crs.forEach((r,i)=>{ head2+='<th>'+scnPill(r,i)+'<br>szt.</th><th>Δ szt.</th><th>Udział zakresu</th>'; });
+  head2+='</tr></thead>';
+  let body2='<tbody>';
+  probsPct.forEach((pct,idx)=>{
+    body2+='<tr><td><span class="pill pill-base">'+pct+'%</span></td>';
+    const b=base.quantity.perProb[idx];
+    body2+='<td>'+b.items+'</td>';
+    crs.forEach((r)=>{
+      const q=r.quantity.perProb[idx];
+      const d=q.items-b.items;
+      const share=q.share!==null?q.share.toFixed(1)+'%':'—';
+      body2+='<td>'+q.items+'</td><td>'+deltaSpan(d,'',true)+'</td><td>'+share+'</td>';
+    });
+    body2+='</tr>';
+  });
+  body2+='</tbody>';
+  t2.innerHTML=head2+body2;
+}
+
+function scnPill(r,i){
+  const cls=i===0?'pill-cr1':'pill-cr2';
+  return '<span class="pill '+cls+'">'+r.label.replace('Scenariusz ','')+'</span><br><span style="font-size:.74rem;color:var(--muted)">'+r.backlog+' el.</span>';
+}
+function deltaSpan(d,unit,invert){
+  const u=unit?(' '+unit):'';
+  if(d===0) return '<span class="delta-zero">0'+u+'</span>';
+  const cls = invert ? (d>0?'delta-neg':'delta-pos') : (d>0?'delta-pos':'delta-neg');
+  return '<span class="'+cls+'">'+(d>0?'+':'')+d+u+'</span>';
+}
+
+/* =========================================================================
+   WYKRES (Canvas, bez bibliotek)
+   ========================================================================= */
+function themeColors(){
+  const cs=getComputedStyle(document.documentElement);
+  const g=n=>cs.getPropertyValue(n).trim();
+  return {text:g('--text'),muted:g('--muted'),accent:g('--accent'),grid:g('--grid'),
+    surface:g('--surface-2'),cr1:g('--cr1'),cr2:g('--cr2'),border:g('--border-strong')};
+}
+function drawChart(base, probsPct){
+  const canvas=$('chart'); const col=themeColors();
+  const legend=$('chartLegend');
+  const dpr=window.devicePixelRatio||1;
+  const cssW=canvas.clientWidth||760; const cssH=340;
+  canvas.width=cssW*dpr; canvas.height=cssH*dpr;
+  canvas.style.height=cssH+'px';
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cssW,cssH);
+
+  if(!base.chart || base.emptyBacklog || base.allZeros){
+    ctx.fillStyle=col.muted; ctx.font='14px system-ui'; ctx.textAlign='center';
+    ctx.fillText(base.emptyBacklog?'Backlog pusty — brak danych do wykresu':'Brak prognozowanej krzywej ukończenia', cssW/2, cssH/2);
+    legend.innerHTML=''; return;
+  }
+  const pts=base.chart.points;
+  const padL=46,padR=18,padT=16,padB=46;
+  const W=cssW-padL-padR, Hh=cssH-padT-padB;
+  const maxS=base.chart.maxSprint;
+  const xOf=s=>padL + (maxS<=1?0:(s-0)/maxS*W);
+  const yOf=f=>padT + (1-f)*Hh;
+
+  // siatka pozioma + oś Y %
+  ctx.strokeStyle=col.grid; ctx.fillStyle=col.muted; ctx.lineWidth=1; ctx.font='11px system-ui';
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const f=i/4; const y=yOf(f);
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+W,y); ctx.stroke();
+    ctx.fillText(Math.round(f*100)+'%', padL-8, y); }
+
+  // oś X: etykiety dat
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  const ticks=Math.min(6,maxS);
+  for(let i=0;i<=ticks;i++){ const s=Math.round(i/ticks*maxS); if(s<1) continue;
+    const x=xOf(s); const d=pts[Math.min(s-1,pts.length-1)];
+    ctx.strokeStyle=col.grid; ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,padT+Hh); ctx.stroke();
+    ctx.fillStyle=col.muted; ctx.fillText(fmtDate(d.dateMs).slice(0,5), x, padT+Hh+8); }
+
+  // krzywa skumulowana (schodkowa)
+  ctx.strokeStyle=col.accent; ctx.lineWidth=2.4; ctx.beginPath();
+  ctx.moveTo(xOf(0),yOf(0));
+  let prevY=yOf(0);
+  pts.forEach(p=>{ const x=xOf(p.sprint),y=yOf(p.frac); ctx.lineTo(x,prevY); ctx.lineTo(x,y); prevY=y; });
+  ctx.stroke();
+  // wypełnienie pod krzywą
+  ctx.lineTo(xOf(maxS),yOf(0)); ctx.closePath();
+  ctx.globalAlpha=.10; ctx.fillStyle=col.accent; ctx.fill(); ctx.globalAlpha=1;
+
+  // progi
+  const markColors=[col.cr1,col.accent,col.cr2];
+  base.completion.forEach((c,idx)=>{
+    if(c.noDate||!c.sprintCount) return;
+    const frac=probsPct[idx]/100;
+    const x=xOf(c.sprintCount), y=yOf(frac);
+    ctx.strokeStyle=markColors[idx%3]; ctx.setLineDash([4,4]); ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(x,y); ctx.lineTo(x,padT+Hh); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=markColors[idx%3]; ctx.beginPath(); ctx.arc(x,y,4,0,7); ctx.fill();
+  });
+
+  // legenda
+  let lg='<span><i style="background:'+col.accent+'"></i>Skumulowane prawdopodobieństwo</span>';
+  base.completion.forEach((c,idx)=>{ if(c.noDate) return;
+    lg+='<span><i style="background:'+markColors[idx%3]+'"></i>'+probsPct[idx]+'% → '+fmtDate(c.dateMs)+'</span>'; });
+  legend.innerHTML=lg;
+}
+
+/* =========================================================================
+   POMOCNICZE: odmiana słów
+   ========================================================================= */
+function plural(n,one,few,many){ n=Math.abs(n);
+  if(n===1) return one;
+  const d=n%10,h=n%100;
+  if(d>=2&&d<=4&&!(h>=12&&h<=14)) return few;
+  return many; }
+function sprintWord(n){ return plural(n,'sprint','sprinty','sprintów'); }
+function elemWord(n){ return plural(n,'element','elementy','elementów'); }
+
+/* =========================================================================
+   PRZEPŁYW: przeliczanie, stale, reset, motyw
+   ========================================================================= */
+function buildScenarios(backlog){
+  const list=[{id:'base',label:'Baza',backlog:backlog}];
+  const errs=[];
+  crScenarios.forEach((scn,i)=>{
+    if(isNaN(scn.value)){ errs.push('Scenariusz CR '+(i+1)+': podaj wartość zmiany.'); return; }
+    if(scn.unit==='items' && !Number.isInteger(scn.value)){ errs.push('Scenariusz CR '+(i+1)+': zmiana w elementach musi być liczbą całkowitą.'); return; }
+    const delta=crChangeItems(scn,backlog); const nb=backlog+delta;
+    if(nb<0){ errs.push('Scenariusz CR '+(i+1)+': nowy backlog byłby ujemny ('+nb+') — scenariusz odrzucony.'); return; }
+    list.push({id:scn.id,label:'Scenariusz CR '+(i+1),backlog:nb,delta:delta});
+  });
+  return {list,errs};
+}
+
+function recalc(){
+  const res=readInputs();
+  const ge=$('globalErr'); ge.classList.remove('show');
+  if(!res.ok){ $('staleBanner').classList.remove('show'); return; }
+  const data=res.data;
+  const sc=buildScenarios(data.backlog);
+  const crErr=$('crErr');
+  if(sc.errs.length){ crErr.innerHTML=sc.errs.join('<br>'); crErr.classList.add('show'); }
+  else crErr.classList.remove('show');
+
+  const model=computeModel({
+    backlog:data.backlog, history:data.history, startMs:data.startMs, len:data.len,
+    probs:data.probs, deadlineMs:data.deadlineMs, scenarios:sc.list
+  });
+  render(model,data);
+  $('staleBanner').classList.remove('show');
+}
+
+let dirty=false;
+function markStale(){ if(lastModel){ $('staleBanner').classList.add('show'); } }
+
+function updateHistoryHint(){
+  const len=parseInt(document.querySelector('input[name=sprintLen]:checked').value,10);
+  const hint=$('historyHint');
+  if(len===7) hint.innerHTML='Wpisz po jednej wartości dla każdego sprintu 1-tygodniowego. <em>Domyślna historia pochodzi ze sprintów dwutygodniowych.</em>';
+  else hint.innerHTML='Wpisz po jednej wartości dla każdego sprintu 2-tygodniowego. <em>Domyślna historia pochodzi ze sprintów dwutygodniowych.</em>';
+  // uwaga tygodniowa przy domyślnej historii
+  const note=$('historyNote');
+  const curr=$('history').value.replace(/\s+/g,'');
+  const def=DEFAULT_HISTORY_STR.replace(/\s+/g,'');
+  if(len===7 && curr===def){ note.hidden=false;
+    note.textContent='Dane przykładowe pochodzą ze sprintów dwutygodniowych. Wprowadź dane tygodniowe, aby prognoza odzwierciedlała rzeczywiste tempo tygodniowe.'; }
+  else note.hidden=true;
+}
+
+function resetDefaults(){
+  $('backlog').value='62';
+  $('startDate').value='2027-01-01';
+  document.querySelector('input[name=sprintLen][value="14"]').checked=true;
+  $('history').value=DEFAULT_HISTORY_STR;
+  $('p1').value='50'; $('p2').value='85'; $('p3').value='95';
+  $('deadline').value='2027-03-31';
+  crScenarios=[
+    {id:'cr1',label:'Scenariusz CR 1',unit:'percent',value:20},
+    {id:'cr2',label:'Scenariusz CR 2',unit:'percent',value:30},
+  ];
+  renderCrEditors();
+  updateHistoryHint();
+  clearErrors();
+  recalc();
+}
+
+/* ---- MOTYW ---- */
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  $('themeLight').setAttribute('aria-pressed', t==='light');
+  $('themeDark').setAttribute('aria-pressed', t==='dark');
+  if(lastModel && lastModel._data) drawChart(lastModel.results[0], lastModel._data.probsPct);
+}
+function initTheme(){
+  let t=null;
+  try{ t=localStorage.getItem('mc-theme'); }catch(e){}
+  if(!t){ t=(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'; }
+  applyTheme(t);
+}
+function setTheme(t){ applyTheme(t); try{ localStorage.setItem('mc-theme',t); }catch(e){} }
+
+/* =========================================================================
+   INICJALIZACJA
+   ========================================================================= */
+function init(){
+  initTheme();
+  $('themeLight').addEventListener('click',()=>setTheme('light'));
+  $('themeDark').addEventListener('click',()=>setTheme('dark'));
+
+  $('form').addEventListener('submit',e=>{ e.preventDefault(); recalc(); });
+  $('reset').addEventListener('click',resetDefaults);
+  $('deadline').addEventListener('change',markStale);
+
+  // zmiana parametrów => stale
+  ['backlog','startDate','history','p1','p2','p3','deadline'].forEach(id=>{
+    $(id).addEventListener('input',()=>{ markStale(); if(id==='backlog') updateCrCalc(); if(id==='history') updateHistoryHint(); });
+  });
+  document.querySelectorAll('input[name=sprintLen]').forEach(r=>r.addEventListener('change',()=>{
+    updateHistoryHint(); markStale(); // zachowujemy wpisane liczby, nie przeliczamy historii
+  }));
+
+  renderCrEditors();
+  updateHistoryHint();
+  window.addEventListener('resize',()=>{ if(lastModel&&lastModel._data) drawChart(lastModel.results[0],lastModel._data.probsPct); });
+
+  // pierwsze otwarcie: gotowe wyniki dla przykładu
+  recalc();
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+
+/* eksport do ewentualnej weryfikacji w konsoli */
+window.__MC__={computeModel,sprintsByDeadline,sprintEnd,fmtDate,isoToUTC,roundHalfUpAbs,runSimulation,qtyForProb,sprintForProb};
+})();
+</script>
 </body>
 </html>
